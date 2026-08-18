@@ -22,7 +22,7 @@ def session_is_valid(user_session: Optional[UserSession] = None) -> bool:
     if (
         not user_session
         or not user_session.session_permissions
-        or not user_session.session_data
+        or user_session.session_data is None
     ):
         return False
 
@@ -53,9 +53,12 @@ def validate_permissions(
     if not session_is_valid(session):
         return False
 
+    session_perms = session.session_permissions or []  # type: ignore
+
     # Validating obligatory permissions
     for perm in must:
-        if perm not in session.session_permissions:  # type: ignore
+        perm_value = perm.value if isinstance(perm, SessionPermissionEnum) else perm
+        if perm_value not in session_perms:
             return False
 
     # All obligatory permissions are present!
@@ -64,7 +67,8 @@ def validate_permissions(
 
     # Validating "OR" permissions
     for perm in at_least_one:
-        if perm in session.session_permissions:  # type: ignore
+        perm_value = perm.value if isinstance(perm, SessionPermissionEnum) else perm
+        if perm_value in session_perms:
             return True
     else:
         # None of the "OR" permissions are present
