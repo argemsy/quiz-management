@@ -9,7 +9,8 @@ help: ## Print help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_.-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # --- Project Initialization & Docker Compose ---
-init: down volume up tf-up ## Init Project (docker + terraform)
+# Terraform no está wireado todavía (devops/terraform/ no existe) — no se incluye en init.
+init: down volume up ## Init Project (docker compose)
 	@echo "¡Proyecto inicializado desde cero y actualizado correctamente!"
 
 down: ## Stop all compose services
@@ -73,8 +74,8 @@ test-snapshot: ## Update syrupy snapshots
 docker-build: ## Build Docker image using buildkit
 	DOCKER_BUILDKIT=1 docker build -f devops/Dockerfile --target development -t quiz-management/backend:dev .
 
-# --- Terraform Infrastructure ---
-ENV ?= local   # antes: ENV ?= qa
+# --- Terraform Infrastructure (pendiente: devops/terraform/ aún no existe) ---
+ENV ?= local
 TF_DIR := devops/terraform/environments/$(ENV)
 
 tf-fmt: ## Formatea todo el código Terraform
@@ -97,7 +98,6 @@ tf-destroy:
 
 tf-up: tf-init tf-apply ## Todo en uno (ej: make tf-up ENV=qa)
 
-# target nuevo en el Makefile
 tf-export-env: ## Vuelca los outputs de Terraform al .env local
 	@terraform -chdir=$(TF_DIR) output -json s3_bucket_names | \
 	  python3 -c "import json,sys; d=json.load(sys.stdin); print(f'S3_PUBLIC_BUCKET_NAME={d[\"public\"]}'); print(f'S3_PRIVATE_BUCKET_NAME={d[\"private\"]}')" \
