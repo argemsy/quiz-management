@@ -86,19 +86,11 @@ class IsAuthenticated(BasePermission):
 
 
 class IsAdmin(BasePermission):
-    message = "AuthenticationError: User does not have 'Admin' Role"
-    must = [
-        SessionPermissionEnum.IS_AUTHENTICATED,
-        SessionPermissionEnum.IS_ADMIN,
-    ]
+    """Admin (tenant admin) can access admin resources.
 
-    def has_permission(self, source: Any, info: Info, **kwargs) -> bool:
-        user_session = info.context.user_session
-        return validate_permissions(user_session, self.must)
-
-
-class IsStaff(BasePermission):
-    message = "AuthenticationError: User does not have 'Staff' Role"
+    Staff (system owner) can also access admin resources (staff > admin hierarchy).
+    """
+    message = "AuthenticationError: User does not have 'Admin' Role or higher"
     must = [
         SessionPermissionEnum.IS_AUTHENTICATED,
     ]
@@ -112,13 +104,35 @@ class IsStaff(BasePermission):
         return validate_permissions(user_session, self.must, self.at_least_one)
 
 
+class IsStaff(BasePermission):
+    """Staff (system owner) can access staff resources.
+
+    Admin CANNOT access staff resources (admin < staff hierarchy).
+    Only authenticated staff users can access.
+    """
+    message = "AuthenticationError: User does not have 'Staff' (System Owner) Role"
+    must = [
+        SessionPermissionEnum.IS_AUTHENTICATED,
+        SessionPermissionEnum.IS_STAFF,
+    ]
+
+    def has_permission(self, source: Any, info: Info, **kwargs) -> bool:
+        user_session = info.context.user_session
+        return validate_permissions(user_session, self.must)
+
+
 class IsOrganizationUser(BasePermission):
-    message = "AuthenticationError: User does not have 'OrganizationUser' or 'OrganizationAdmin' Role"
+    """Organization users (any authenticated user).
+
+    Includes: Staff > Admin > Collaborator hierarchy.
+    """
+    message = "AuthenticationError: User is not authenticated or does not have valid role"
 
     must = [
         SessionPermissionEnum.IS_AUTHENTICATED,
     ]
     at_least_one = [
+        SessionPermissionEnum.IS_STAFF,
         SessionPermissionEnum.IS_ADMIN,
         SessionPermissionEnum.IS_COLLABORATOR,
     ]

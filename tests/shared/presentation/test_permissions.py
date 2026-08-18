@@ -224,6 +224,11 @@ class TestIsAuthenticatedPermission:
 
 
 class TestIsAdminPermission:
+    """Admin: tenant admin. Staff > Admin > Collaborator hierarchy.
+
+    Staff can access admin resources (staff is superior).
+    Admin can only access admin resources (not staff).
+    """
     def test_unauthenticated_user_denied(self, mock_info):
         permission = IsAdmin()
         assert permission.has_permission(None, mock_info) is False
@@ -233,12 +238,14 @@ class TestIsAdminPermission:
         permission = IsAdmin()
         assert permission.has_permission(None, info) is False
 
-    def test_staff_user_denied(self, staff_session):
+    def test_staff_user_allowed(self, staff_session):
+        """Staff (system owner) CAN access admin resources."""
         info = MockInfo(user_session=staff_session)
         permission = IsAdmin()
-        assert permission.has_permission(None, info) is False
+        assert permission.has_permission(None, info) is True
 
     def test_admin_user_allowed(self, admin_session):
+        """Admin (tenant admin) can access admin resources."""
         info = MockInfo(user_session=admin_session)
         permission = IsAdmin()
         assert permission.has_permission(None, info) is True
@@ -250,6 +257,11 @@ class TestIsAdminPermission:
 
 
 class TestIsStaffPermission:
+    """Staff: system owner (superior to admin).
+
+    Only staff can access staff resources.
+    Admin CANNOT access staff resources (admin < staff).
+    """
     def test_unauthenticated_user_denied(self, mock_info):
         permission = IsStaff()
         assert permission.has_permission(None, mock_info) is False
@@ -260,14 +272,16 @@ class TestIsStaffPermission:
         assert permission.has_permission(None, info) is False
 
     def test_staff_user_allowed(self, staff_session):
+        """Staff (system owner) can access staff resources."""
         info = MockInfo(user_session=staff_session)
         permission = IsStaff()
         assert permission.has_permission(None, info) is True
 
-    def test_admin_user_allowed(self, admin_session):
+    def test_admin_user_denied(self, admin_session):
+        """Admin CANNOT access staff resources (admin < staff hierarchy)."""
         info = MockInfo(user_session=admin_session)
         permission = IsStaff()
-        assert permission.has_permission(None, info) is True
+        assert permission.has_permission(None, info) is False
 
     def test_collaborator_denied(self, collaborator_session):
         info = MockInfo(user_session=collaborator_session)
@@ -281,16 +295,19 @@ class TestIsOrganizationUserPermission:
         assert permission.has_permission(None, mock_info) is False
 
     def test_authenticated_user_denied(self, authenticated_session):
+        """Only authenticated with a valid role can access org user resources."""
         info = MockInfo(user_session=authenticated_session)
         permission = IsOrganizationUser()
         assert permission.has_permission(None, info) is False
 
-    def test_staff_user_denied(self, staff_session):
+    def test_staff_user_allowed(self, staff_session):
+        """Staff can access org user resources."""
         info = MockInfo(user_session=staff_session)
         permission = IsOrganizationUser()
-        assert permission.has_permission(None, info) is False
+        assert permission.has_permission(None, info) is True
 
     def test_admin_user_allowed(self, admin_session):
+        """Admin can access org user resources."""
         info = MockInfo(user_session=admin_session)
         permission = IsOrganizationUser()
         assert permission.has_permission(None, info) is True
@@ -319,20 +336,26 @@ class TestAccessControlMatrix:
             (
                 "collaborator",
                 True,  # Collaborator is authenticated
-                False,
-                False,
-                True,
-            ),  # Collaborator
+                False,  # Collaborator cannot access admin resources
+                False,  # Collaborator cannot access staff resources
+                True,   # Collaborator can access org_user resources
+            ),  # Collaborator (lowest level)
+            (
+                "admin",
+                True,   # Admin is authenticated
+                True,   # Admin can access admin resources
+                False,  # Admin CANNOT access staff resources (admin < staff)
+                True,   # Admin can access org_user resources
+            ),  # Admin (tenant admin, middle level)
             (
                 "staff",
-                True,  # Staff is authenticated
-                False,
-                True,
-                False,
-            ),  # Staff (not org user)
-            ("admin", True, True, True, True),  # Admin (all permissions, including authenticated)
+                True,   # Staff is authenticated
+                True,   # Staff can access admin resources (staff > admin)
+                True,   # Staff can access staff resources
+                True,   # Staff can access org_user resources
+            ),  # Staff (system owner, highest level)
         ],
-        ids=["unauthenticated", "collaborator", "staff", "admin"],
+        ids=["unauthenticated", "collaborator", "admin", "staff"],
     )
     def test_access_control_matrix(
         self,
