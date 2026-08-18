@@ -3,6 +3,7 @@ from strawberry.schema.config import StrawberryConfig
 
 from src.quiz.presentation.schema.mutations.mutation_builder import QuizMutationBuilder
 from src.shared.presentation.schema.context import Info
+from src.shared.presentation.schema.types import JSONType
 
 
 @strawberry.type
@@ -20,5 +21,17 @@ class Mutation:
 schema = strawberry.federation.Schema(
     query=Query,
     mutation=Mutation,
-    config=StrawberryConfig(auto_camel_case=False),
+    config=StrawberryConfig(
+        auto_camel_case=False,
+        scalar_map={
+            JSONType: strawberry.scalar(
+                name="JSON",
+                description=(
+                    "The `JSON` scalar type represents JSON values as specified by ECMA-404"
+                ),
+                serialize=lambda v: v,
+                parse_value=lambda v: v,
+            )
+        },
+    ),
 )
