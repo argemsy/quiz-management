@@ -1,0 +1,161 @@
+.
+├── CLAUDE.md
+├── Makefile
+├── README.md
+├── arbol.txt
+├── main
+│   ├── __init__.py
+│   ├── asgi.py
+│   ├── settings
+│   │   ├── __init__.py
+│   │   └── base.py
+│   ├── urls.py
+│   └── wsgi.py
+├── manage.py
+├── poetry.lock
+├── pyproject.toml
+├── quiz_db.sqlite3
+└── src
+    ├── __init__.py
+    ├── eventing
+    │   ├── __init__.py
+    │   ├── application
+    │   │   ├── __init__.py
+    │   │   ├── persist_failed_event_message.py
+    │   │   └── retry_failed_event.py
+    │   ├── apps.py
+    │   ├── domain
+    │   │   └── __init__.py
+    │   ├── infrastructure
+    │   │   ├── __init__.py
+    │   │   └── persistence
+    │   │       ├── __init__.py
+    │   │       └── django
+    │   │           ├── __init__.py
+    │   │           ├── migrations
+    │   │           │   ├── 0001_initial.py
+    │   │           │   └── __init__.py
+    │   │           └── models
+    │   │               ├── __init__.py
+    │   │               └── failed_event_message.py
+    │   ├── models.py
+    │   ├── presentation
+    │   │   ├── __init__.py
+    │   │   └── admin
+    │   │       ├── __init__.py
+    │   │       └── failed_event_message.py
+    │   └── shared
+    │       ├── __init__.py
+    │       └── eventing_enums.py
+    ├── identity
+    │   ├── __init__.py
+    │   ├── application
+    │   │   └── __init__.py
+    │   ├── apps.py
+    │   ├── domain
+    │   │   └── __init__.py
+    │   ├── infrastructure
+    │   │   ├── __init__.py
+    │   │   └── persistence
+    │   │       ├── __init__.py
+    │   │       └── django
+    │   │           ├── __init__.py
+    │   │           ├── migrations
+    │   │           │   ├── 0001_initial.py
+    │   │           │   └── __init__.py
+    │   │           └── models
+    │   │               ├── __init__.py
+    │   │               └── user.py
+    │   ├── models.py
+    │   ├── presentation
+    │   │   ├── __init__.py
+    │   │   └── admin
+    │   │       ├── __init__.py
+    │   │       └── user.py
+    │   └── shared
+    │       └── __init__.py
+    ├── quiz
+    │   ├── __init__.py
+    │   ├── application
+    │   │   └── __init__.py
+    │   ├── apps.py
+    │   ├── domain
+    │   │   └── __init__.py
+    │   ├── infrastructure
+    │   │   ├── __init__.py
+    │   │   └── persistence
+    │   │       ├── __init__.py
+    │   │       └── django
+    │   │           ├── __init__.py
+    │   │           ├── migrations
+    │   │           │   ├── 0001_initial.py
+    │   │           │   └── __init__.py
+    │   │           └── models
+    │   │               ├── __init__.py
+    │   │               └── quiz.py
+    │   ├── models.py
+    │   ├── presentation
+    │   │   ├── __init__.py
+    │   │   └── admin
+    │   │       ├── __init__.py
+    │   │       └── quiz.py
+    │   └── shared
+    │       ├── __init__.py
+    │       └── quiz_enums.py
+    ├── shared
+    │   ├── __init__.py
+    │   ├── domain
+    │   │   ├── __init__.py
+    │   │   └── enums.py
+    │   ├── infrastructure
+    │   │   ├── __init__.py
+    │   │   ├── event_bus
+    │   │   │   ├── __init__.py
+    │   │   │   ├── bus.py
+    │   │   │   ├── messages.py
+    │   │   │   └── registry.py
+    │   │   ├── logging
+    │   │   │   ├── __init__.py
+    │   │   │   ├── config.py
+    │   │   │   ├── domains.py
+    │   │   │   └── logger.py
+    │   │   └── persistence
+    │   │       ├── __init__.py
+    │   │       └── django
+    │   │           ├── __init__.py
+    │   │           └── models.py
+    │   └── presentation
+    │       ├── __init__.py
+    │       └── admin
+    │           ├── __init__.py
+    │           └── mixins.py
+    └── tenant
+        ├── __init__.py
+        ├── application
+        │   └── __init__.py
+        ├── apps.py
+        ├── domain
+        │   └── __init__.py
+        ├── infrastructure
+        │   ├── __init__.py
+        │   └── persistence
+        │       ├── __init__.py
+        │       └── django
+        │           ├── __init__.py
+        │           ├── migrations
+        │           │   ├── 0001_initial.py
+        │           │   └── __init__.py
+        │           └── models
+        │               ├── __init__.py
+        │               └── tenant.py
+        ├── models.py
+        ├── presentation
+        │   ├── __init__.py
+        │   └── admin
+        │       ├── __init__.py
+        │       └── tenant.py
+        └── shared
+            ├── __init__.py
+            └── tenant_enums.py
+
+57 directories, 102 files

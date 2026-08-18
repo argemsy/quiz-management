@@ -17,6 +17,7 @@ from src.shared.presentation.schema.responses import (
     IntegrityErrorResponse,
     ValidationErrorResponse,
 )
+from src.shared.presentation.schema.context import Info
 
 logger = get_logger(LogDomain.QUIZ)
 
@@ -37,10 +38,9 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
     """
 
     @functools.wraps(func)
-    async def async_wrapper(self, *args, **kwargs) -> Union[BaseErrorResponse, Any]:
+    async def async_wrapper(self, info: Info, *args, **kwargs) -> Union[BaseErrorResponse, Any]:
         log_tag = f"{self.__class__.__name__}.{func.__name__}"
-        operation_id = kwargs.get("operation_id", "unknown")
-
+        operation_id = info.context.operation_id
         try:
             return await func(self, *args, **kwargs)
 
@@ -109,9 +109,9 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
             )
 
     @functools.wraps(func)
-    def sync_wrapper(self, *args, **kwargs) -> Union[BaseErrorResponse, Any]:
+    def sync_wrapper(self, info: Info, *args, **kwargs) -> Union[BaseErrorResponse, Any]:
         log_tag = f"{self.__class__.__name__}.{func.__name__}"
-        operation_id = kwargs.get("operation_id", "unknown")
+        operation_id = info.context.operation_id
 
         try:
             return func(self, *args, **kwargs)

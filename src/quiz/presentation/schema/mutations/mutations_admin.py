@@ -30,8 +30,9 @@ class QuizAdminMutation:
     @strawberry.mutation(permission_classes=[IsStaff])
     @handle_mutations_exceptions
     async def create_quiz(
-        self, info: Info, input: CreateQuizInput, operation_id: str
+        self, info: Info, input: CreateQuizInput
     ) -> CreateQuizResponse:
+        operation_id = info.context.operation_id
         input_kwargs = strawberry.asdict(input)
         dto = CreateQuizDTO.model_validate(input_kwargs)
         use_case = CreateQuizUseCase(
