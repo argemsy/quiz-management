@@ -9,6 +9,13 @@ from src.tenant.infrastructure.persistence.django.models import (
 
 
 class TenantLookupRepositoryImpl(TenantLookupRepository):
+    """Tenant app's implementation of the TenantLookupRepository port.
+
+    Quiz defines the port (what it needs to know about tenants).
+    Tenant implements it (how to query its own models).
+    This keeps quiz free from tenant model imports.
+    """
+
     @async_database()
     def tenant_exists(self, tenant_id: uuid.UUID) -> bool:
         return TenantModel.objects.filter(

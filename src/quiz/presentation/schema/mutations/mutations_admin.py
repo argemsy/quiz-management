@@ -9,9 +9,7 @@ from quiz.application.create_quiz_use_case.tenant_validation_service import (
     TenantValidationService,
 )
 from src.quiz.infrastructure.repositories.quiz_repository_imp import QuizRepositoryImpl
-from src.quiz.infrastructure.repositories.tenant_lookup_repository_imp import (
-    TenantLookupRepositoryImpl,
-)
+from src.tenant.infrastructure.repositories import TenantLookupRepositoryImpl
 from src.quiz.presentation.schema.inputs.create_quiz_input import CreateQuizInput
 from src.quiz.presentation.schema.responses.create_quiz_response import (
     CreateQuizPayload,
