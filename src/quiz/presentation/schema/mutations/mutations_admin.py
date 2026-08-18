@@ -1,15 +1,12 @@
 import strawberry
 
-from src.quiz.application.create_quiz_use_case.dto import (
-    CreateQuizDTO,
-)
-from src.quiz.application.create_quiz_use_case.use_case import CreateQuizUseCase
-from quiz.application.create_quiz_use_case.quiz_service import QuizService
-from quiz.application.create_quiz_use_case.tenant_validation_service import (
+from src.quiz.application.create_quiz_use_case.dto import CreateQuizDTO
+from src.quiz.application.create_quiz_use_case.quiz_service import QuizService
+from src.quiz.application.create_quiz_use_case.tenant_validation_service import (
     TenantValidationService,
 )
+from src.quiz.application.create_quiz_use_case.use_case import CreateQuizUseCase
 from src.quiz.infrastructure.repositories.quiz_repository_imp import QuizRepositoryImpl
-from src.tenant.infrastructure.repositories import TenantLookupRepositoryImpl
 from src.quiz.presentation.schema.inputs.create_quiz_input import CreateQuizInput
 from src.quiz.presentation.schema.responses.create_quiz_response import (
     CreateQuizPayload,
@@ -17,9 +14,10 @@ from src.quiz.presentation.schema.responses.create_quiz_response import (
 )
 from src.quiz.presentation.schema.types.quiz_type import QuizType
 from src.shared.infrastructure.event_bus import get_event_bus
+from src.shared.presentation.decorators import handle_mutations_exceptions
 from src.shared.presentation.schema.context import Info
 from src.shared.presentation.schema.permissions import IsStaff
-from src.shared.presentation.decorators import handle_mutations_exceptions
+from src.tenant.infrastructure.repositories import TenantLookupRepositoryImpl
 
 
 @strawberry.type

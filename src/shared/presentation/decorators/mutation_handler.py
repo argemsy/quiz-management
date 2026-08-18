@@ -11,13 +11,13 @@ from src.shared.domain.exceptions import (
     InfrastructureError,
 )
 from src.shared.infrastructure.logging import LogDomain, get_logger
+from src.shared.presentation.schema.context import Info
 from src.shared.presentation.schema.responses import (
     BaseErrorResponse,
-    InternalErrorResponse,
     IntegrityErrorResponse,
+    InternalErrorResponse,
     ValidationErrorResponse,
 )
-from src.shared.presentation.schema.context import Info
 
 logger = get_logger(LogDomain.QUIZ)
 
@@ -38,7 +38,9 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
     """
 
     @functools.wraps(func)
-    async def async_wrapper(self, info: Info, *args, **kwargs) -> Union[BaseErrorResponse, Any]:
+    async def async_wrapper(
+        self, info: Info, *args, **kwargs
+    ) -> Union[BaseErrorResponse, Any]:
         log_tag = f"{self.__class__.__name__}.{func.__name__}"
         operation_id = info.context.operation_id
         try:
@@ -109,7 +111,9 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
             )
 
     @functools.wraps(func)
-    def sync_wrapper(self, info: Info, *args, **kwargs) -> Union[BaseErrorResponse, Any]:
+    def sync_wrapper(
+        self, info: Info, *args, **kwargs
+    ) -> Union[BaseErrorResponse, Any]:
         log_tag = f"{self.__class__.__name__}.{func.__name__}"
         operation_id = info.context.operation_id
 

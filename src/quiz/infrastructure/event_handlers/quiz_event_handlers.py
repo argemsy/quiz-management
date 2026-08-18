@@ -1,8 +1,10 @@
 from src.quiz.application.create_questions_use_case.dto import CreateQuestionsDTO
+from src.quiz.application.create_questions_use_case.question_service import (
+    QuestionService,
+)
 from src.quiz.application.create_questions_use_case.use_case import (
     CreateQuestionsUseCase,
 )
-from quiz.application.create_questions_use_case.question_service import QuestionService
 from src.quiz.infrastructure.repositories.question_repository_imp import (
     QuestionRepositoryImpl,
 )

@@ -5,8 +5,8 @@ import strawberry
 from strawberry.fastapi import BaseContext
 from strawberry.types import Info as _Info
 
-from shared.presentation.schema.responses import get_operation_id
 from src.shared.presentation.schema.auth import authorize
+from src.shared.presentation.schema.responses import get_operation_id
 from src.shared.presentation.schema.types import UserSession
 
 

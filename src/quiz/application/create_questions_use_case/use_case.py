@@ -1,5 +1,7 @@
 from src.quiz.application.create_questions_use_case.dto import CreateQuestionsDTO
-from quiz.application.create_questions_use_case.question_service import QuestionService
+from src.quiz.application.create_questions_use_case.question_service import (
+    QuestionService,
+)
 from src.quiz.domain.entities.question_entity import AnswerChoiceEntity, QuestionEntity
 from src.shared.infrastructure.logging import LogDomain, get_logger
 

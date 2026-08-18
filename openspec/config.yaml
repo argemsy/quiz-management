@@ -1,32 +1,45 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  ## System: quiz-management (Sistema de gestión de Exámenes)
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
+  **Architecture**: Django 6.1 (admin, port 8000) + FastAPI 0.141 (GraphQL, port 8500) as separate services.
+  Postgres database, custom User model (identity.MyUser, UUID PK).
+
+  **Application structure**: 4 Django apps under src/<app>/{domain,application,infrastructure,presentation}.
+  - quiz: Full DDD (entities, use cases, repos, GraphQL mutations, admin)
+  - eventing: Full DDD (dead-letter/outbox pattern for event bus failures)
+  - tenant: Infrastructure + presentation only (domain/application empty for now)
+  - identity: Infrastructure (User model) + presentation (domain/application empty)
+  - shared: Cross-cutting (exceptions, event bus, logging, decorators, GraphQL context/types)
+
+  **Tech stack**: Python 3.12+, Poetry, strawberry-graphql (federation), PyJWT, Postgres, pytest + pytest-django,
+  black + isort (profile: black, line 88) + flake8, structlog, nanoid, factory-boy.
+
+  **Event bus**: In-memory, in-process pub/sub (no Redis/Kafka yet). Sync handlers inline, async as background tasks.
+  Failures persisted by eventing app as dead letters, retryable.
+
+  **Mandatory patterns**:
+  1. Never .create() in loops — pre-generate UUIDs, bulk_create() once.
+  2. Cross-app: consumer defines port in domain/repositories/, producer implements in infrastructure/*_imp.py.
+     Never import other app's Django models directly.
+  3. operation_id for mutations ALWAYS from client header X-Operation-ID, never server-generated.
+  4. Mutations use @handle_mutations_exceptions decorator — no manual try/except. Maps exceptions to typed GraphQL responses.
+  5. Imports: absolute from src.*, order: stdlib → third-party → src. local.
+  6. DTOs: Pydantic BaseModel frozen. Entities: @dataclass(frozen=True).
+  7. Repos: ABC in domain/, impl in infrastructure/*_repository_imp.py with @async_database() decorator.
+  8. GraphQL: @strawberry.input → @strawberry.mutation + @handle_mutations_exceptions → strawberry.union of error types + Payload.
+  9. PKs: UUIDField(primary_key=True, default=uuid.uuid4) everywhere.
+  10. Docstrings: only where WHY is non-obvious; no restating WHAT.
+
+# rules: none yet (can be added per artifact type when patterns emerge)
+#
+# Example rule if needed later:
 #   rules:
 #     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
+#       - Keep under 500 words
+#       - Include "Non-goals" section
+#     design:
+#       - Diagram cross-app dependencies before writing
 #     tasks:
-#       - Break tasks into chunks of max 2 hours
-
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+#       - Break into 2-hour chunks

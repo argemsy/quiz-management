@@ -1,6 +1,6 @@
 from src.quiz.application.create_quiz_use_case.dto import CreateQuizDTO
-from quiz.application.create_quiz_use_case.quiz_service import QuizService
-from quiz.application.create_quiz_use_case.tenant_validation_service import (
+from src.quiz.application.create_quiz_use_case.quiz_service import QuizService
+from src.quiz.application.create_quiz_use_case.tenant_validation_service import (
     TenantValidationService,
 )
 from src.quiz.domain.entities.question_entity import AnswerChoiceEntity, QuestionEntity
