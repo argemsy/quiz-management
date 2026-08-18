@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-**quiz-management** is a system for managing exams ("Proyecto para la gestión de Exámenes"). The repository is **active** with real implementation: `src/`, `tests/`, `devops/`, and `openspec/` all exist and contain working code organized around 4 Django apps with full or partial DDD layering (quiz, eventing with complete domain/application/infrastructure/presentation; tenant and identity with infrastructure + presentation only, domain/application empty).
+**quiz-management** is a system for managing exams ("Proyecto para la gestión de Exámenes"). The repository is **active** with real implementation: `src/`, `tests/`, `devops/`, and `openspec/` all exist and contain working code organized around 3 Django apps with full or partial DDD layering (quiz, eventing with complete domain/application/infrastructure/presentation; account with infrastructure + presentation only, domain/application empty).
 
 ## Tech stack
 
@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **GraphQL**: `strawberry-graphql` (federation schema), JWT auth via `PyJWT`, custom permission classes (`IsAuthenticated`, `IsAdmin`, `IsStaff`, `IsOrganizationUser`) in `src/shared/presentation/schema/permissions.py`. No Django permission system.
 
-- **Database**: Postgres 15 (via `psycopg2-binary` + `dj-database-url`). Custom user model `src.identity.infrastructure.persistence.django.models.user.MyUser(AbstractUser)` with UUID primary key, set as `AUTH_USER_MODEL = "identity.MyUser"`. Note: a stray `quiz_db.sqlite3` at repo root is not the configured backend (residual local dev artifact).
+- **Database**: Postgres 15 (via `psycopg2-binary` + `dj-database-url`). Custom user model `src.account.infrastructure.persistence.django.models.user.MyUser(AbstractUser)` with UUID primary key, set as `AUTH_USER_MODEL = "account.MyUser"`. Note: a stray `quiz_db.sqlite3` at repo root is not the configured backend (residual local dev artifact).
 
 - **Event bus**: In-process, in-memory pub/sub (`src/shared/infrastructure/event_bus/`), singleton via `get_event_bus()`. Sync handlers run inline, async handlers as asyncio tasks in background. **No Redis/Kafka/SQS**. Dead-letter pattern: `src/eventing/` app registers a `failure_sink` (`PersistFailedEventUseCase`) that persists failed dispatches as `FailedEventMessage` models, retryable via `retry_failed_event_use_case`.
 
@@ -47,12 +47,11 @@ src/
                        infrastructure/{persistence/django/models,repositories},
                        presentation/{admin}
 
-  tenant/              Infrastructure + presentation only (domain/application empty):
+  account/             Infrastructure + presentation only (domain/application empty).
+                       Owns MyUser, Tenant, and UserTenant (a user's membership in a
+                       tenant) — merged from former identity + tenant apps so creating
+                       a tenant-scoped user doesn't span two apps:
                        infrastructure/{persistence/django/models,repositories},
-                       presentation/admin
-
-  identity/            Infrastructure + presentation only (domain/application empty):
-                       infrastructure/persistence/django/models (user.py),
                        presentation/admin
 
   shared/              Cross-cutting (no per-app separation):
@@ -73,7 +72,7 @@ openspec/              Spec-driven change tracking: specs/quiz/{attempt-result,q
 Hard requirements from development history — violating them breaks the system or fails review. Full rationale + BAD/GOOD code examples: `docs/claude/mandatory-patterns.md`.
 
 1. **Never ORM writes in loops** — pre-generate UUIDs, accumulate in a list, `bulk_create()` once. Prevents N+1 queries. Example: `src/quiz/infrastructure/repositories/question_repository_imp.py`.
-2. **Cross-app dependencies: port pattern** — consumer defines the interface in its `domain/repositories/`; producer implements it in `infrastructure/repositories/*_imp.py`, importing only its own models. Dependency direction: consumer ← producer. Example: `src/quiz/domain/repositories/tenant_lookup_repository.py` ↔ `src/tenant/infrastructure/repositories/tenant_lookup_repository_imp.py`.
+2. **Cross-app dependencies: port pattern** — consumer defines the interface in its `domain/repositories/`; producer implements it in `infrastructure/repositories/*_imp.py`, importing only its own models. Dependency direction: consumer ← producer. Example: `src/quiz/domain/repositories/tenant_lookup_repository.py` ↔ `src/account/infrastructure/repositories/tenant_lookup_repository_imp.py`.
 3. **`operation_id` for mutation idempotency** — ALWAYS from the client's `X-Operation-ID` header, NEVER generated server-side; fail fast (raise) if the header is missing. Example: `src/shared/presentation/schema/context.py`, `Context.operation_id`.
 4. **Mutation exception handling via decorator** — `@handle_mutations_exceptions` on every mutation, never manual `try/except`. Maps `DomainError`/`ApplicationError`→`ValidationErrorResponse`, `InfrastructureError`→`IntegrityErrorResponse`, `pydantic.ValidationError`→`ValidationErrorResponse`, `django.db.IntegrityError`→`IntegrityErrorResponse`, anything else→`InternalErrorResponse` (logged `exc_info=True`). Example: `src/quiz/presentation/schema/mutations/mutations_admin.py`.
 
@@ -151,15 +150,13 @@ Still applies regardless of workflow: the git safety protocol in the global CLAU
 
 - **Django vs FastAPI split**: Admin (Django, port 8000) and GraphQL (FastAPI, port 8500) run as separate services. Confirm this is intentional long-term, not accidental sprawl.
 
-- **identity app isolation**: Currently unused by quiz/tenant (no cross-app refs in either direction). If quiz/tenant need to validate users in future, apply the port pattern: define a port in quiz/tenant and let identity implement it.
+- **account app isolation**: `MyUser` itself is currently unused by `quiz` (no direct cross-app refs — `quiz` only consumes `Tenant`/`UserTenant` data through the `TenantLookupRepository` port). If `quiz` needs to validate users directly in future, extend that same port pattern.
 
 - **eventing integration**: Only integrated as `failure_sink` on the event bus; no explicit port consumed by other apps. If this evolves (e.g., other apps subscribing to specific event channels), document the new integration pattern.
 
 - **Entity↔Model mapping asymmetry**: `from_model()` exists; `to_model()` does not (inline in repos). This is the current convention; can be refactored to a separate mapper class later if needed.
 
 - **Decorator code duplication**: `@handle_mutations_exceptions` has near-identical `async_wrapper` and `sync_wrapper` bodies — not blocking, but a cleanup candidate if the file is touched again.
-
-- **Filename typo**: `src/tenant/infrastructure/persistence/django/models/tenat_user.py` is missing an 'n' — won't be renamed in this plan because it touches migrations/imports; flagged for future fix.
 
 - **Terraform stubs**: `devops/terraform/` does not exist yet, though `Makefile` already has `tf-*` targets. This is a known gap, not an error.
 
