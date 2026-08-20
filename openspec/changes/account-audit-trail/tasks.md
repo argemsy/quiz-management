@@ -30,6 +30,7 @@
   - override `soft_delete_instances(request, queryset)`: for each object in the queryset, serialize before/after state, call the existing bulk `queryset.update(...)`, then publish one `DELETION` event per object
   - shared `_publish_audit_event(request, obj, action_type, previous_state)` helper used by both overrides
   - `tenant` resolution is per-subclass: `TenantAdmin` uses the object's own id, `UserTenantAdmin` uses `obj.tenant_id`
+- [x] 6.2b (found in a later review pass, not in the original plan) `CommonAdminActionsMixin` (`src/shared/presentation/admin/mixins.py`) registers 4 bulk actions — `activate_instances`/`deactivate_instances`/`soft_delete_instances`/`restore_instances`. Only `soft_delete_instances` was overridden; the other three silently fell through to the unaudited base implementations, so bulk activate/deactivate/restore produced zero `AuditLog` rows. Not a stated Non-Goal in `design.md` — an oversight. Fixed by extracting a shared `_bulk_update_with_audit(request, queryset, *, action_type, message, **update_fields)` helper in `AuditableAdminMixin` and overriding all three remaining actions on top of it (same per-object event-per-`queryset.update()` shape as `soft_delete_instances`, which now also uses the helper); activate/deactivate/restore all publish `AuditLogActionEnum.CHANGE` (no dedicated enum member exists for them, and semantically they're field changes like any other `save_model` edit). Test: `test_tenant_activate_deactivate_restore_are_audited` in `tests/account/presentation/admin/test_audit_trail.py`.
 
 ## 7. Account: wire the mixin
 
@@ -47,4 +48,4 @@
 
 - [x] 9.1 `make lint-src` (black/isort/flake8 clean on every file this change touches; pre-existing lint debt in unrelated lines of `src/eventing/apps.py` and `tests/fixtures/eventing_fixtures.py` left as-is — not introduced by this change)
 - [x] 9.2 `make test` (or targeted `pytest` on the new/changed test files) — full suite: 67 passed
-- [ ] 9.3 Manually create/edit/soft-delete a Tenant and a UserTenant in Django admin, confirm rows appear in `AuditLogAdmin` with correct `user`, `created_at`, `content_type`, `action_type`, `source_type=ADMIN`
+- [x] 9.3 Manually create/edit/soft-delete a Tenant and a UserTenant in Django admin (via Chrome browser automation against `make up`'s `admin` service), confirm rows appear in `AuditLogAdmin` with correct `user`, `created_at`, `content_type`, `action_type`, `source_type=ADMIN` — verified for both, plus the 6.2b bulk-action fix (deactivate/activate/soft-delete/restore all produced the expected `CHANGE`/`DELETION` rows). Scratch tenant/user/membership created for the check were deleted afterward.
