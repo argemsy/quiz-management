@@ -158,3 +158,39 @@ def test_tenant_activate_deactivate_restore_are_audited(admin_request):
     assert restoration.metadata["current_state"]["is_deleted"] is False
     tenant.refresh_from_db()
     assert tenant.is_deleted is False
+
+
+def test_bulk_action_over_multiple_objects_records_one_entry_per_object(
+    admin_request,
+):
+    """Regression test for a real-scale gap: `_bulk_update_with_audit` used
+    to publish one event (and cause one INSERT) per selected object — fine
+    for 1-2 rows in these tests, but Django admin's "select all N matching
+    your search" routinely selects far more than what's on screen. This
+    covers the batched path (`data["records"]` -> `execute_many` ->
+    `bulk_create`) with more than one object in the same chunk."""
+    tenants = TenantModel.objects.bulk_create(
+        [
+            TenantModel(
+                tenant_type=TenantTypeEnum.COMPANY.value,
+                name=f"Bulk {i}",
+                slug=f"bulk-{i}",
+            )
+            for i in range(5)
+        ]
+    )
+    tenant_admin = _silence_messages(TenantAdmin(TenantModel, admin.site))
+    queryset = TenantModel.objects.filter(id__in=[t.id for t in tenants])
+
+    tenant_admin.deactivate_instances(admin_request, queryset)
+
+    entries = AuditLog.objects.filter(
+        object_id__in=[t.id for t in tenants],
+        action_type=AuditLogActionEnum.CHANGE.value,
+    )
+    assert entries.count() == 5
+    assert set(entries.values_list("object_id", flat=True)) == {t.id for t in tenants}
+    for entry in entries:
+        assert entry.metadata["previous_state"]["is_active"] is True
+        assert entry.metadata["current_state"]["is_active"] is False
+        assert entry.source_type == AuditLogSourceEnum.ADMIN.value

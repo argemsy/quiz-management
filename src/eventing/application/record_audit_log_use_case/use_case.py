@@ -8,7 +8,18 @@ class RecordAuditLogUseCase:
         self.repository = repository
 
     async def execute(self, dto: RecordAuditLogDTO) -> AuditLogEntity:
-        entity = AuditLogEntity(
+        return await self.repository.record(self._to_entity(dto))
+
+    async def execute_many(self, dtos: list[RecordAuditLogDTO]) -> list[AuditLogEntity]:
+        """Batched counterpart to `execute()` — a bulk admin action publishes
+        one event carrying many records instead of one event per record, so
+        the write side records them with one `bulk_create()` instead of N
+        single-row inserts."""
+        return await self.repository.record_many([self._to_entity(dto) for dto in dtos])
+
+    @staticmethod
+    def _to_entity(dto: RecordAuditLogDTO) -> AuditLogEntity:
+        return AuditLogEntity(
             object_id=dto.object_id,
             content_type=dto.content_type,
             source_type=dto.source_type,
@@ -22,4 +33,3 @@ class RecordAuditLogUseCase:
                 "current_state": dto.current_state,
             },
         )
-        return await self.repository.record(entity)

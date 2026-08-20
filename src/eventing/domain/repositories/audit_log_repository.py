@@ -7,3 +7,7 @@ class AuditLogRepository(ABC):
     @abstractmethod
     async def record(self, entity: AuditLogEntity) -> AuditLogEntity:
         pass
+
+    @abstractmethod
+    async def record_many(self, entities: list[AuditLogEntity]) -> list[AuditLogEntity]:
+        pass

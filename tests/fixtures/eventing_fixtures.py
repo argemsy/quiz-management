@@ -84,6 +84,9 @@ class FakeAuditLogRepository(AuditLogRepository):
         self.recorded.append(entity)
         return entity
 
+    async def record_many(self, entities: list[AuditLogEntity]) -> list[AuditLogEntity]:
+        return [await self.record(entity) for entity in entities]
+
 
 def _with_id(
     entity: FailedEventMessageEntity, id: uuid.UUID
