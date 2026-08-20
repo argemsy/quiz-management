@@ -5,7 +5,6 @@ import strawberry
 from strawberry.fastapi import BaseContext
 from strawberry.types import Info as _Info
 
-from src.shared.presentation.schema.auth import authorize
 from src.shared.presentation.schema.responses import get_operation_id
 from src.shared.presentation.schema.types import UserSession
 
@@ -15,10 +14,7 @@ class Context(BaseContext):
     def user_session(self) -> UserSession | None:
         if not (req := self.request):
             return None
-
-        if not (authorization := req.headers.get("Authorization", None)):
-            return None
-        return authorize(authorization)
+        return getattr(req.state, "user_session", None)
 
     @cached_property
     def operation_id(self) -> str:

@@ -44,7 +44,7 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
         log_tag = f"{self.__class__.__name__}.{func.__name__}"
         operation_id = info.context.operation_id
         try:
-            return await func(self, *args, **kwargs)
+            return await func(self, info, *args, **kwargs)
 
         except (DomainError, ApplicationError) as exc:
             logger.warning(
@@ -118,7 +118,7 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
         operation_id = info.context.operation_id
 
         try:
-            return func(self, *args, **kwargs)
+            return func(self, info, *args, **kwargs)
 
         except (DomainError, ApplicationError) as exc:
             logger.warning(

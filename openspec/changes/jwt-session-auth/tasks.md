@@ -49,24 +49,26 @@
 
 ## 7. Auth middleware and Context cutover
 
-- [ ] 7.1 Add `src/shared/presentation/auth_middleware.py`: reads `Authorization`, decodes via the token service (4.4); no header → `request.state.user_session = None`; expired/invalid → `request.state.user_session = None` (unauthenticated, not stale); valid but version mismatch → short-circuit a raw `401 {"code": "SESSION_STALE"}` response before GraphQL execution
-- [ ] 7.2 For the version check in 7.1, distinguish "key missing" (treat as mismatch → stale) from "store unreachable" (fail open, log via `structlog`, request proceeds using token claims)
-- [ ] 7.3 Simplify `src/shared/presentation/schema/context.py::Context.user_session` to read `request.state.user_session` only — remove its dependency on `auth.py`
-- [ ] 7.4 Update `src/shared/presentation/schema/types.py::UserSession` — add `active_tenant_id`, `user_tenant_id`, and the two version fields consumed internally (only if still needed after 7.3; otherwise these stay in the token claims layer)
-- [ ] 7.5 Mount the middleware on `fastapp` in `main/asgi.py`
-- [ ] 7.6 Retire/trim `src/shared/presentation/schema/auth.py` now that decode logic lives in the shared token service (4.4)
+- [x] 7.1 Add `src/shared/presentation/auth_middleware.py`: reads `Authorization`, decodes via the token service (4.4); no header → `request.state.user_session = None`; expired/invalid → `request.state.user_session = None` (unauthenticated, not stale); valid but version mismatch → short-circuit a raw `401 {"code": "SESSION_STALE"}` response before GraphQL execution. Implemented as a Starlette `BaseHTTPMiddleware`, mounted globally on `fastapp` (its only route today is the GraphQL router).
+- [x] 7.2 For the version check in 7.1, distinguish "key missing" (treat as mismatch → stale) from "store unreachable" (fail open, log via `structlog`, request proceeds using token claims) — a real `redis.exceptions.RedisError` around either `get_*_version` call is caught explicitly and logged (`LogDomain.SHARED`, `warning`, event `permission_version_store_unreachable`); a missing key flows through the ordinary mismatch path (`PermissionVersionRepositoryImpl` already returns `0` for it), no special-casing needed.
+- [x] 7.3 Simplify `src/shared/presentation/schema/context.py::Context.user_session` to read `request.state.user_session` only — remove its dependency on `auth.py`
+- [x] 7.4 Update `src/shared/presentation/schema/types.py::UserSession` — added `user_id`, `active_tenant_id`, `user_tenant_id`, `role`, `user_version`, `user_tenant_version` (all optional, additive-only — `tests/shared/presentation/test_permissions.py`'s existing fixtures needed no changes). **Deviates from the plan**: `permissions.py`'s `BasePermission` classes still read `session_permissions`/`session_data` (design.md: authorization enforcement "stays exactly where it is now"), so the middleware *translates* `SessionClaims` → `UserSession`, building `session_permissions` from `claims.is_staff`/`claims.role` (role compared as string literals `"ADMIN"`/`"DIRECTOR"`/`"COLLABORATOR"` — not by importing `account`'s `UserTenantRoleEnum`, to keep `shared` free of a concrete-app import). `user_id` was added beyond the plan's list because `switch_tenant`'s resolver needs it from `info.context.user_session` (per `SwitchTenantDTO`'s own docstring). `GUEST` role maps to no extra permission — pre-existing gap in `SessionPermissionEnum` (no `IS_GUEST` member), out of scope here.
+- [x] 7.5 Mount the middleware on `fastapp` in `main/asgi.py`
+- [x] 7.6 Retired `src/shared/presentation/schema/auth.py` outright (deleted, not trimmed) — its only caller was `context.py`, and its `UserSession(application_roles=...)` call was already broken against the type's real fields (dead code, never exercised by a real login flow before this change).
 
 ## 8. GraphQL mutations
 
-- [ ] 8.1 Add `LoginInput`/`LoginResponse`/`LoginPayload` and a `login` mutation (new `src/account/presentation/schema/mutations/` module, following `src/quiz/presentation/schema/mutations/mutations_admin.py` as the reference: `@handle_mutations_exceptions`, `X-Operation-ID` still required per mandatory pattern #3)
-- [ ] 8.2 Add `switchTenant` mutation, same conventions
-- [ ] 8.3 Add `refreshSession` mutation, same conventions
-- [ ] 8.4 Wire the new mutations into the federated schema root (wherever `quiz`'s mutations are currently composed in)
+- [x] 8.1 Added `LoginInput`/`LoginResponse`/`LoginPayload` and a `login` mutation (`src/account/presentation/schema/{inputs,responses,mutations}/`, following `mutations_admin.py`/`create_quiz_response.py` as the reference: `@handle_mutations_exceptions`, `X-Operation-ID` required). No `permission_classes` (pre-auth).
+- [x] 8.2 Added `switchTenant` mutation, `permission_classes=[IsAuthenticated]`, reads `info.context.user_session.user_id` for `SwitchTenantDTO.user_id`.
+- [x] 8.3 Added `refreshSession` mutation. **Deviates from the plan, necessarily**: `RefreshSessionInput.token` is an explicit input field, not read from the `Authorization` header — a stale-but-unexpired token sent via the header would be 401'd by `AuthMiddleware` before this mutation's resolver ever ran, making refresh unreachable through the normal header path. Documented on the input type itself. No `permission_classes`.
+- [x] 8.4 Wired `AccountMutationBuilder` into the federated schema root (`schema.py`'s `Mutation.account`), mirroring `Mutation.quiz`.
+- **Real bug found and fixed, not anticipated by this change**: `src/shared/presentation/decorators/mutation_handler.py`'s `handle_mutations_exceptions` extracted `info` from the call args to read `operation_id`, but then called `func(self, *args, **kwargs)` — never passing `info` back to the wrapped resolver. Any mutation using this decorator (including `quiz`'s pre-existing `create_quiz`) would fail with `TypeError: missing 1 required positional argument: 'info'` the moment it was actually invoked through GraphQL — unexercised until this change's end-to-end tests (9.1-9.3) were the first to call a decorated mutation through the real resolver path. Fixed both `async_wrapper` and `sync_wrapper` to call `func(self, info, *args, **kwargs)`.
 
 ## 9. End-to-end verification
 
-- [ ] 9.1 Integration test: login → GraphQL request with the issued token succeeds, no DB hit for permissions on that second request
-- [ ] 9.2 Integration test: role change via admin → next request with the old token gets `SESSION_STALE` → refresh → retry succeeds with updated role
-- [ ] 9.3 Integration test: Redis unreachable → valid unexpired token still accepted; request logged as degraded
-- [ ] 9.4 Manual check: staff (superuser, no tenant) login and request path works end-to-end
-- [ ] 9.5 `make lint` and `make test` pass for the full slice
+- [x] 9.1 Integration test: login → GraphQL request with the issued token succeeds, no DB hit for permissions on that second request (`tests/account/presentation/schema/test_auth_session_flow.py::test_login_then_verified_request_makes_no_permission_db_query`, asserts `connection.queries == []` around the second request).
+- [x] 9.2 Integration test: role change via admin → next request with the old token gets `SESSION_STALE` → refresh → retry succeeds with updated role (`test_role_change_stales_session_then_refresh_recovers_it`).
+- [x] 9.3 Integration test: Redis unreachable → valid unexpired token still accepted; request logged as degraded (`test_redis_unreachable_fails_open_and_logs_a_warning`).
+- Added beyond the original plan: `test_staff_login_then_switch_tenant_succeeds` — the only group-8 resolver (`switch_tenant`) not otherwise covered by 9.1-9.3, exercises staff (no-tenant) login + the `user_id`-from-context parsing added in 7.4.
+- [ ] 9.4 Manual check: staff (superuser, no tenant) login and request path works end-to-end via `make up` + a real GraphQL client — not done in this session (the in-process `httpx`/`ASGITransport` tests above cover the same path programmatically, but this explicit manual click-through per the original task is still open, same convention as `account-audit-trail`'s task 9.3).
+- [x] 9.5 `make lint`/flake8/black/isort and `make test` pass for the full slice touched (90/90 tests green; flake8 clean on every touched file except pre-existing, unrelated repo debt — see `docs/claude/` known gaps).
