@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, SecretStr, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.shared.infrastructure.logging import get_logger
 
@@ -23,14 +22,15 @@ class _GroupSettings(BaseSettings):
         extra="ignore",
     )
 
+
 class SecuritySettings(_GroupSettings):
-    secret_key: SecretStr = Field(
-        default=SecretStr("*"), validation_alias="SECRET_KEY"
-    )
+    secret_key: SecretStr = Field(default=SecretStr("*"), validation_alias="SECRET_KEY")
     jwt_secret_key: SecretStr = Field(
         default=SecretStr("insecure-jwt-secret-key"),
         validation_alias="JWT_SECRET_KEY",
     )
+    jwt_exp_minutes: int = Field(default=15, validation_alias="JWT_EXP_MINUTES")
+
 
 class DatabaseSettings(_GroupSettings):
     url: SecretStr = Field(
@@ -38,6 +38,17 @@ class DatabaseSettings(_GroupSettings):
         validation_alias="DATABASE_URL",
     )
     conn_max_age: int = Field(default=60, validation_alias="DB_CONN_MAX_AGE")
+
+
+class RedisSettings(_GroupSettings):
+    url: SecretStr = Field(
+        default=SecretStr("redis://localhost:6379/0"),
+        validation_alias="REDIS_URL",
+    )
+    socket_timeout_seconds: float = Field(
+        default=0.5, validation_alias="REDIS_SOCKET_TIMEOUT_SECONDS"
+    )
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -50,12 +61,12 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="local")
     DATABASE: DatabaseSettings = Field(default_factory=DatabaseSettings)
     SECURITY: SecuritySettings = Field(default_factory=SecuritySettings)
-
-
+    REDIS: RedisSettings = Field(default_factory=RedisSettings)
 
     @model_validator(mode="after")
     def _reject_placeholder_secret_outside_local(self) -> "Settings":
-        """Fail fast if SECRET_KEY is still the insecure placeholder outside local/qa."""
+        """Fail fast if SECRET_KEY is still the insecure placeholder
+        outside local/qa."""
         if (
             self.ENVIRONMENT not in {"local", "qa"}
             and self.SECURITY.secret_key.get_secret_value() == "*"
