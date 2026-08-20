@@ -5,10 +5,12 @@ from enum import Enum, auto
 
 import pytest
 
+from src.eventing.domain.entities.audit_log_entity import AuditLogEntity
 from src.eventing.domain.entities.failed_event_message_entity import (
     FailedEventMessageEntity,
 )
 from src.eventing.domain.exceptions import FailedEventMessageNotFoundError
+from src.eventing.domain.repositories.audit_log_repository import AuditLogRepository
 from src.eventing.domain.repositories.failed_event_message_repository import (
     FailedEventMessageRepository,
 )
@@ -70,6 +72,22 @@ class FakeFailedEventMessageRepository(FailedEventMessageRepository):
         return entity
 
 
+class FakeAuditLogRepository(AuditLogRepository):
+    """In-memory stand-in for `AuditLogRepositoryImpl`, used to unit test
+    `RecordAuditLogUseCase` orchestration without touching the database."""
+
+    def __init__(self) -> None:
+        self.recorded: list[AuditLogEntity] = []
+
+    async def record(self, entity: AuditLogEntity) -> AuditLogEntity:
+        entity = entity if entity.id else dataclasses_replace(entity, id=uuid.uuid4())
+        self.recorded.append(entity)
+        return entity
+
+    async def record_many(self, entities: list[AuditLogEntity]) -> list[AuditLogEntity]:
+        return [await self.record(entity) for entity in entities]
+
+
 def _with_id(
     entity: FailedEventMessageEntity, id: uuid.UUID
 ) -> FailedEventMessageEntity:
@@ -122,6 +140,11 @@ def succeeding_handler():
 @pytest.fixture
 def fake_failed_event_message_repository() -> FakeFailedEventMessageRepository:
     return FakeFailedEventMessageRepository()
+
+
+@pytest.fixture
+def fake_audit_log_repository() -> FakeAuditLogRepository:
+    return FakeAuditLogRepository()
 
 
 @pytest.fixture
