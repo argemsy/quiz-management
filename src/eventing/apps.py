@@ -7,11 +7,15 @@ class EventingConfig(AppConfig):
 
     def ready(self):
         import src.eventing.presentation.admin  # type: ignore
+        from src.account.shared.account_event_channels import AccountEventChannel
         from src.eventing.application.persist_failed_event_use_case.dto import (
             PersistFailedEventDTO,
         )
         from src.eventing.application.persist_failed_event_use_case.use_case import (
             PersistFailedEventUseCase,
+        )
+        from src.eventing.infrastructure.event_handlers.audit_event_handlers import (
+            handle_account_entity_changed,
         )
         from src.eventing.infrastructure.repositories.failed_event_message_repository_imp import (
             FailedEventMessageRepositoryImpl,
@@ -23,4 +27,7 @@ class EventingConfig(AppConfig):
             lambda event, handler, exc: persist_use_case.execute(
                 PersistFailedEventDTO.from_event_bus_failure(event, handler, exc)
             )
+        )
+        get_event_bus().subscribe(
+            AccountEventChannel.ENTITY_CHANGED, handle_account_entity_changed
         )

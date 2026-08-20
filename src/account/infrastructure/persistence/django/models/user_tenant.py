@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 from src.account.shared.account_enums import UserTenantRoleEnum
@@ -19,6 +21,11 @@ class UserTenant(QuizTimeStampMixin, QuizActiveMixin, QuizSoftDeleteMixin):
             same reason.
     """
 
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
     user = models.ForeignKey(
         "MyUser", on_delete=models.PROTECT, related_name="user_tenants"
     )
@@ -32,6 +39,9 @@ class UserTenant(QuizTimeStampMixin, QuizActiveMixin, QuizSoftDeleteMixin):
     )
     activated_at = models.DateTimeField(blank=True, null=True, editable=False)
     deactivated_at = models.DateTimeField(blank=True, null=True, editable=False)
+
+    def __str__(self):
+        return self.user.email
 
     class Meta:
         db_table = "user_tenant"
