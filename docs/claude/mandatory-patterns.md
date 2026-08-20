@@ -35,7 +35,7 @@ QuestionModel.objects.bulk_create(questions_to_create)  # 1 query
 ❌ **BAD**:
 ```python
 # quiz/presentation/mutations.py
-from src.tenant.infrastructure.persistence.django.models import TenantModel
+from src.account.infrastructure.persistence.django.models import TenantModel
 if TenantModel.objects.filter(id=tenant_id).exists():  # violates isolation
     ...
 ```
@@ -48,7 +48,7 @@ class TenantLookupRepository(ABC):
     async def tenant_exists(self, tenant_id: uuid.UUID) -> bool:
         pass
 
-# tenant/infrastructure/repositories/tenant_lookup_repository_imp.py (producer impl)
+# account/infrastructure/repositories/tenant_lookup_repository_imp.py (producer impl)
 class TenantLookupRepositoryImpl(TenantLookupRepository):
     @async_database()
     def tenant_exists(self, tenant_id: uuid.UUID) -> bool:
@@ -62,9 +62,9 @@ use_case = CreateQuizUseCase(
 )
 ```
 
-**Why**: Decouples quiz from tenant's model structure. If tenant changes its schema, quiz is unaffected. Consumer owns the contract, producer chooses implementation. Clear dependency: consumer ← producer.
+**Why**: Decouples quiz from account's model structure. If account changes its schema, quiz is unaffected. Consumer owns the contract, producer chooses implementation. Clear dependency: consumer ← producer.
 
-**Example**: `src/quiz/domain/repositories/tenant_lookup_repository.py` ↔ `src/tenant/infrastructure/repositories/tenant_lookup_repository_imp.py`
+**Example**: `src/quiz/domain/repositories/tenant_lookup_repository.py` ↔ `src/account/infrastructure/repositories/tenant_lookup_repository_imp.py`
 
 ---
 

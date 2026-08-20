@@ -1,4 +1,4 @@
-.PHONY: help clean lint lint-src init down volume pull build up ps test test-dev test-snapshot prune migrations migrate reset_db docker-build tf-init tf-plan tf-apply tf-destroy tf-up
+.PHONY: help clean lint lint-src init down volume pull build up ps test test-dev test-snapshot prune migrations migrate reset_db createsuperuser docker-build tf-init tf-plan tf-apply tf-destroy tf-up
 
 .ONESHELL:
 SHELL := /bin/bash
@@ -47,6 +47,9 @@ migrate: ## Run Django migrations
 
 reset_db: ## Reset database
 	docker compose -f devops/docker-compose.yaml run --rm migrator python manage.py reset_db --noinput --close-sessions
+
+createsuperuser: ## Create a Django superuser (interactive) in the running admin container
+	docker compose -f devops/docker-compose.yaml exec admin python manage.py createsuperuser
 
 # --- Code Quality & Testing ---
 clean: ## Delete Python cache and temporary files

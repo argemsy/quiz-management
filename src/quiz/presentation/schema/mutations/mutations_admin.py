@@ -1,5 +1,6 @@
 import strawberry
 
+from src.account.infrastructure.repositories import TenantLookupRepositoryImpl
 from src.quiz.application.create_quiz_use_case.dto import CreateQuizDTO
 from src.quiz.application.create_quiz_use_case.quiz_service import QuizService
 from src.quiz.application.create_quiz_use_case.tenant_validation_service import (
@@ -17,7 +18,6 @@ from src.shared.infrastructure.event_bus import get_event_bus
 from src.shared.presentation.decorators import handle_mutations_exceptions
 from src.shared.presentation.schema.context import Info
 from src.shared.presentation.schema.permissions import IsStaff
-from src.tenant.infrastructure.repositories import TenantLookupRepositoryImpl
 
 
 @strawberry.type

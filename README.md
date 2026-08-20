@@ -1,7 +1,7 @@
 # quiz-management
 
 Proyecto para la gestión de Exámenes. Backend en Python organizado con capas DDD
-(domain/application/infrastructure/presentation) sobre 4 apps de Django, con GraphQL
+(domain/application/infrastructure/presentation) sobre 3 apps de Django, con GraphQL
 como interfaz principal de la API.
 
 ## Stack
@@ -24,8 +24,7 @@ como interfaz principal de la API.
 |---|---|---|
 | `quiz` | DDD completo | Exámenes, preguntas, respuestas, resultados |
 | `eventing` | DDD completo | Dead-letter/outbox para el event bus |
-| `tenant` | infra + presentation | Organizaciones/tenants |
-| `identity` | infra + presentation | Usuario custom (`MyUser`, UUID como PK) |
+| `account` | infra + presentation | Usuario custom (`MyUser`, UUID como PK), organizaciones (`Tenant`) y su membresía (`UserTenant`) |
 | `shared` | cross-cutting | Event bus, exceptions, schema GraphQL base, decoradores |
 
 ## Levantar el proyecto

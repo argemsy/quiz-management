@@ -40,8 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "src.quiz",
-    "src.tenant",
-    "src.identity",
+    "src.account",
     "src.eventing",
 ]
 
@@ -82,7 +81,7 @@ import dj_database_url  # noqa: E402
 
 from main.project_settings import settings  # noqa: E402
 
-AUTH_USER_MODEL = "identity.MyUser"
+AUTH_USER_MODEL = "account.MyUser"
 
 DATABASES = {
     "default": dj_database_url.parse(
@@ -92,9 +91,8 @@ DATABASES = {
 }
 
 MIGRATION_MODULES: dict[str, str] = {
-    "identity": "src.identity.infrastructure.persistence.django.migrations",
+    "account": "src.account.infrastructure.persistence.django.migrations",
     "quiz": "src.quiz.infrastructure.persistence.django.migrations",
-    "tenant": "src.tenant.infrastructure.persistence.django.migrations",
     "eventing": "src.eventing.infrastructure.persistence.django.migrations",
 }
 
