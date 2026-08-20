@@ -47,6 +47,10 @@ The system SHALL record an `AuditLog` entry, with `action_type=CHANGE`, for each
 - **WHEN** an admin user runs the activate or deactivate bulk action on one or more `Tenant` or `UserTenant` records
 - **THEN** a separate `AuditLog` entry with `action_type=CHANGE` is recorded for each affected record, with `metadata.current_state.is_active` reflecting the new value
 
+#### Scenario: Bulk action over a large selection does not degrade to one write per object
+- **WHEN** a bulk action in Django admin affects a large number of `Tenant` or `UserTenant` records in one selection
+- **THEN** the system still records one `AuditLog` entry per affected record, without requiring one database write per record to do so
+
 ### Requirement: Audit log entry captures actor, timestamp, and state snapshot
 Every `AuditLog` entry recorded by this capability SHALL identify who made the change, when it happened, and the entity's state before and after the change.
 

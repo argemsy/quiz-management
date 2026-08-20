@@ -27,6 +27,30 @@ QuestionModel.objects.bulk_create(questions_to_create)  # 1 query
 
 **Example**: `src/quiz/infrastructure/repositories/question_repository_imp.py`
 
+**Variant — loop and write split across layers via the event bus**: the rule applies to the *end-to-end* effect of a code path, not just whether the method you're editing has a literal `for` loop next to a `.create()`. A method whose own DB write is already a single query can still be this anti-pattern if it loops and calls `get_event_bus().publish()` once per object, and each publish synchronously triggers an in-process handler in a *different* app that does its own single-row `.create()`.
+
+❌ **BAD**:
+```python
+# account/presentation/admin/mixins.py
+for obj in queryset:
+    event_bus.publish(EventBusMessage(channel=..., data={"id": obj.id, ...}))  # N events
+    # -> eventing/infrastructure/event_handlers/audit_event_handlers.py handles each
+    #    one synchronously, calling AuditLog.objects.create() -> N single-row INSERTs
+```
+
+✅ **GOOD**:
+```python
+# account/presentation/admin/mixins.py
+for chunk in batched(queryset.iterator(chunk_size=1000), 1000):
+    event_bus.publish(EventBusMessage(channel=..., data={"records": [...]}))  # 1 event per chunk
+    # -> handler branches on data["records"] and calls execute_many(),
+    #    which uses AuditLogRepositoryImpl.record_many() -> bulk_create()
+```
+
+**Watch for in review**: any Django admin `@admin.action` — its `queryset` argument is not bounded by page size ("select all N matching your search" routinely produces 10k-100k+ rows), so "small, manually curated selection" is not a safe assumption to justify skipping batching. Fix both halves: `.iterator(chunk_size=1000)` on the read side (stream, don't materialize the whole selection into a list) and `bulk_create()` (via a `record_many()`/`execute_many()` pair mirroring the existing singular methods) on the write side.
+
+**Example**: `src/account/presentation/admin/mixins.py::AuditableAdminMixin._bulk_update_with_audit` (BAD→GOOD both visible in git history).
+
 ---
 
 ### 2. Cross-app dependencies: port pattern
