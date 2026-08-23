@@ -19,6 +19,7 @@ class LoginUseCase:
 
         logger.info(
             "user_logged_in",
+            correlation_id=dto.correlation_id,
             user_id=str(claims.user_id),
             is_staff=claims.is_staff,
             active_tenant_id=(

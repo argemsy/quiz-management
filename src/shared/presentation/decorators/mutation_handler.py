@@ -10,6 +10,10 @@ from src.shared.domain.exceptions import (
     DomainError,
     InfrastructureError,
 )
+from src.shared.infrastructure.cache.idempotency_lock import (
+    release_fast_path_lock,
+    try_acquire_fast_path_lock,
+)
 from src.shared.infrastructure.logging import LogDomain, get_logger
 from src.shared.presentation.schema.context import Info
 from src.shared.presentation.schema.responses import (
@@ -42,80 +46,111 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
         self, info: Info, *args, **kwargs
     ) -> Union[BaseErrorResponse, Any]:
         log_tag = f"{self.__class__.__name__}.{func.__name__}"
+        correlation_id = info.context.correlation_id
         operation_id = info.context.operation_id
+
+        if not await try_acquire_fast_path_lock(operation_id):
+            logger.info(
+                "duplicate_operation_in_flight",
+                log_tag=log_tag,
+                correlation_id=correlation_id,
+                operation_id=operation_id,
+            )
+            return IntegrityErrorResponse(
+                correlation_id=correlation_id,
+                message=(
+                    "A request with this operation_id is already being "
+                    "processed; retry shortly."
+                ),
+            )
+
         try:
-            return await func(self, info, *args, **kwargs)
+            try:
+                return await func(self, info, *args, **kwargs)
 
-        except (DomainError, ApplicationError) as exc:
-            logger.warning(
-                f"{exc.__class__.__name__}",
-                log_tag=log_tag,
-                operation_id=operation_id,
-                error=str(exc),
-            )
-            return ValidationErrorResponse(
-                operation_id=operation_id,
-                message=str(exc),
-                field=None,
-            )
+            except (DomainError, ApplicationError) as exc:
+                logger.warning(
+                    f"{exc.__class__.__name__}",
+                    log_tag=log_tag,
+                    correlation_id=correlation_id,
+                    error=str(exc),
+                )
+                return ValidationErrorResponse(
+                    correlation_id=correlation_id,
+                    message=str(exc),
+                    field=None,
+                )
 
-        except PydanticValidationError as exc:
-            error_msg = ", ".join([e["msg"] for e in exc.errors()])
-            logger.warning(
-                "ValidationError",
-                log_tag=log_tag,
-                operation_id=operation_id,
-                error=error_msg,
-            )
-            return ValidationErrorResponse(
-                operation_id=operation_id,
-                message=error_msg,
-                field=None,
-            )
+            except PydanticValidationError as exc:
+                error_msg = ", ".join([e["msg"] for e in exc.errors()])
+                logger.warning(
+                    "ValidationError",
+                    log_tag=log_tag,
+                    correlation_id=correlation_id,
+                    error=error_msg,
+                )
+                return ValidationErrorResponse(
+                    correlation_id=correlation_id,
+                    message=error_msg,
+                    field=None,
+                )
 
-        except InfrastructureError as exc:
-            logger.warning(
-                f"{exc.__class__.__name__}",
-                log_tag=log_tag,
-                operation_id=operation_id,
-                error=str(exc),
-            )
-            return IntegrityErrorResponse(
-                operation_id=operation_id,
-                message=str(exc),
-            )
+            except InfrastructureError as exc:
+                logger.warning(
+                    f"{exc.__class__.__name__}",
+                    log_tag=log_tag,
+                    correlation_id=correlation_id,
+                    error=str(exc),
+                )
+                return IntegrityErrorResponse(
+                    correlation_id=correlation_id,
+                    message=str(exc),
+                )
 
-        except IntegrityError as exc:
-            logger.warning(
-                "IntegrityError",
-                log_tag=log_tag,
-                operation_id=operation_id,
-                error=str(exc),
-            )
-            return IntegrityErrorResponse(
-                operation_id=operation_id,
-                message="Database integrity violation.",
-            )
+            except IntegrityError as exc:
+                logger.warning(
+                    "IntegrityError",
+                    log_tag=log_tag,
+                    correlation_id=correlation_id,
+                    error=str(exc),
+                )
+                return IntegrityErrorResponse(
+                    correlation_id=correlation_id,
+                    message="Database integrity violation.",
+                )
 
-        except Exception as exc:
-            logger.error(
-                "InternalError",
-                log_tag=log_tag,
-                operation_id=operation_id,
-                error=str(exc),
-                exc_info=True,
-            )
-            return InternalErrorResponse(
-                operation_id=operation_id,
-                message="Unexpected internal error.",
-            )
+            except Exception as exc:
+                logger.error(
+                    "InternalError",
+                    log_tag=log_tag,
+                    correlation_id=correlation_id,
+                    error=str(exc),
+                    exc_info=True,
+                )
+                return InternalErrorResponse(
+                    correlation_id=correlation_id,
+                    message="Unexpected internal error.",
+                )
+        finally:
+            # Pure short-lived mutex, not the correctness guarantee (that's
+            # the Postgres unique constraint on IdempotencyKey.operation_id
+            # a use case may enforce via IdempotencyReservationRepository) —
+            # always release so a legitimate later retry with this same
+            # operation_id isn't blocked by a stale in-flight lock.
+            await release_fast_path_lock(operation_id)
 
     @functools.wraps(func)
     def sync_wrapper(
         self, info: Info, *args, **kwargs
     ) -> Union[BaseErrorResponse, Any]:
         log_tag = f"{self.__class__.__name__}.{func.__name__}"
-        operation_id = info.context.operation_id
+        correlation_id = info.context.correlation_id
+        # Accessed (not just declared) so the required-header check runs for
+        # every mutation, sync included — no Redis fast-path lock here: the
+        # shared Redis client is `redis.asyncio`-only, and every mutation in
+        # this codebase is async today (see mutation-idempotency-rate-limit
+        # tasks.md 4.1).
+        info.context.operation_id
 
         try:
             return func(self, info, *args, **kwargs)
@@ -124,11 +159,11 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
             logger.warning(
                 f"{exc.__class__.__name__}",
                 log_tag=log_tag,
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 error=str(exc),
             )
             return ValidationErrorResponse(
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 message=str(exc),
                 field=None,
             )
@@ -138,11 +173,11 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
             logger.warning(
                 "ValidationError",
                 log_tag=log_tag,
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 error=error_msg,
             )
             return ValidationErrorResponse(
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 message=error_msg,
                 field=None,
             )
@@ -151,11 +186,11 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
             logger.warning(
                 f"{exc.__class__.__name__}",
                 log_tag=log_tag,
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 error=str(exc),
             )
             return IntegrityErrorResponse(
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 message=str(exc),
             )
 
@@ -163,11 +198,11 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
             logger.warning(
                 "IntegrityError",
                 log_tag=log_tag,
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 error=str(exc),
             )
             return IntegrityErrorResponse(
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 message="Database integrity violation.",
             )
 
@@ -175,12 +210,12 @@ def handle_mutations_exceptions(func: Callable) -> Callable:
             logger.error(
                 "InternalError",
                 log_tag=log_tag,
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 error=str(exc),
                 exc_info=True,
             )
             return InternalErrorResponse(
-                operation_id=operation_id,
+                correlation_id=correlation_id,
                 message="Unexpected internal error.",
             )
 

@@ -1,0 +1,9 @@
+mutation Refresh($token: String!) {
+  account {
+    refresh_session(input: { token: $token }) {
+      __typename
+      ... on RefreshSessionSuccess { token is_staff active_tenant_id role }
+      ... on ValidationErrorResponse { message }
+    }
+  }
+}

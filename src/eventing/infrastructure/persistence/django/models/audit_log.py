@@ -83,9 +83,6 @@ class AuditLog(QuizTimeStampMixin):
         help_text="previous_state / current_state snapshots and descriptive messages.",
     )
 
-    def __str__(self):
-        return self.object_repr
-
     class Meta:
         db_table = "audit_log"
         verbose_name = "Audit Log"

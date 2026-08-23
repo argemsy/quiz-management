@@ -1,0 +1,19 @@
+mutation CreateQuiz(
+  $tenantId: ID!
+  $tenantUserId: ID!
+  $questions: [QuizQuestionInput!]!
+) {
+  quiz {
+    create_quiz(input: {
+      tenant_id: $tenantId,
+      tenant_user_id: $tenantUserId,
+      quiz: { configuration: {}, questions: $questions }
+    }) {
+      __typename
+      ... on CreateQuizSuccess { correlation_id payload { id code quiz_type } }
+      ... on IntegrityErrorResponse { message }
+      ... on ValidationErrorResponse { message }
+      ... on InternalErrorResponse { message }
+    }
+  }
+}

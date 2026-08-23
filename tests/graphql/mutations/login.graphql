@@ -1,0 +1,10 @@
+mutation Login($email: String!, $password: String!, $tenantId: ID) {
+  account {
+    login(input: { email: $email, password: $password, tenant_id: $tenantId }) {
+      __typename
+      ... on LoginSuccess { token is_staff active_tenant_id role }
+      ... on IntegrityErrorResponse { message }
+      ... on ValidationErrorResponse { message }
+    }
+  }
+}

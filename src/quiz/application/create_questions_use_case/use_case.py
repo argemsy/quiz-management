@@ -30,6 +30,7 @@ class CreateQuestionsUseCase:
         )
         logger.info(
             "questions_created",
+            correlation_id=dto.correlation_id,
             quiz_id=str(dto.quiz_id),
             questions_created=len(created),
         )

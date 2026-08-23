@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Event bus**: In-process, in-memory pub/sub (`src/shared/infrastructure/event_bus/`), singleton via `get_event_bus()`. Sync handlers run inline, async handlers as asyncio tasks in background. **No Redis/Kafka/SQS**. Dead-letter pattern: `src/eventing/` app registers a `failure_sink` (`PersistFailedEventUseCase`) that persists failed dispatches as `FailedEventMessage` models, retryable via `retry_failed_event_use_case`.
 
-- **Testing**: `pytest` + `pytest-django` + `pytest-asyncio`. Real `tests/` directory with 27 tests (eventing: full coverage of dto/use_case/domain/repo/end-to-end; quiz: infra constraint tests). Fixtures in `tests/fixtures/`, `tests/conftest.py`.
+- **Testing**: `pytest` + `pytest-django` + `pytest-asyncio`, snapshots via `syrupy` (`snapshot_json`/`snapshot_json_matcher` fixtures). Real `tests/` directory with 104 tests across all 3 apps. Fixtures in `tests/fixtures/*_fixtures.py` (registered as plugins in `tests/conftest.py`), GraphQL documents in `tests/graphql/{queries,mutations}/*.graphql` loaded via `tests/tools/graphql.py::read_graphql`. **Coverage: 94% of `src/`** (config in `pyproject.toml`, `make coverage`/`make coverage-html`) — keep it high, don't let it regress; no `fail_under` enforced yet (no CI), so this is manual discipline until one exists.
 
 - **Linting**: `black` + `isort` (profile: black, line-length: 88) + `flake8` (max-line-length: 88, extend-ignore: E203). Config in `pyproject.toml` and `.flake8`.
 
@@ -55,10 +55,15 @@ src/
                        presentation/admin
 
   shared/              Cross-cutting (no per-app separation):
-                       domain/exceptions.py, infrastructure/{event_bus,logging,persistence/django/models.py},
+                       domain/{exceptions.py,repositories/} (ports with no single owning app,
+                       e.g. IdempotencyReservationRepository),
+                       application/{dto.py,idempotency_service.py} (DTO mixins — CorrelationIdDTO,
+                       OperationIdDTO — and cross-cutting services with no single owning app),
+                       infrastructure/{event_bus,logging,persistence/django/models.py},
                        presentation/{admin/mixins,decorators/mutation_handler,schema/{context,permissions,responses,schema,types,auth}}
 
-tests/                 pytest suite: mirrors src/ by app; tests/fixtures/, tests/conftest.py
+tests/                 pytest suite: mirrors src/ by app; tests/fixtures/, tests/conftest.py,
+                       tests/tools/ (test-only helpers, e.g. read_graphql), tests/graphql/{queries,mutations}/*.graphql
 
 devops/                Dockerfile, docker-compose.yaml, docker.env(.example)
                        [Note: devops/terraform/ does NOT exist yet — Makefile targets tf-* are stubs]
@@ -73,8 +78,9 @@ Hard requirements from development history — violating them breaks the system 
 
 1. **Never ORM writes in loops** — pre-generate UUIDs, accumulate in a list, `bulk_create()` once. Prevents N+1 queries; applies even when the loop and the write are in different layers via the event bus (see `docs/claude/mandatory-patterns.md`). Example: `src/quiz/infrastructure/repositories/question_repository_imp.py`.
 2. **Cross-app dependencies: port pattern** — consumer defines the interface in its `domain/repositories/`; producer implements it in `infrastructure/repositories/*_imp.py`, importing only its own models. Dependency direction: consumer ← producer. Example: `src/quiz/domain/repositories/tenant_lookup_repository.py` ↔ `src/account/infrastructure/repositories/tenant_lookup_repository_imp.py`.
-3. **`operation_id` for mutation idempotency** — ALWAYS from the client's `X-Operation-ID` header, NEVER generated server-side; fail fast (raise) if the header is missing. Example: `src/shared/presentation/schema/context.py`, `Context.operation_id`.
+3. **`correlation_id` (tracing) + `operation_id` (idempotency)** — two separate client-supplied ids on every mutation, ALWAYS from `X-Correlation-ID`/`X-Operation-ID` headers, NEVER generated server-side; fail fast (raise) if either header is missing. `operation_id` enforcement (Redis fast-path lock + Postgres unique-constraint guarantee) is opt-in per use case — `create_quiz` is the reference implementation. Example: `src/shared/presentation/schema/context.py`, `Context.correlation_id`/`Context.operation_id`.
 4. **Mutation exception handling via decorator** — `@handle_mutations_exceptions` on every mutation, never manual `try/except`. Maps `DomainError`/`ApplicationError`→`ValidationErrorResponse`, `InfrastructureError`→`IntegrityErrorResponse`, `pydantic.ValidationError`→`ValidationErrorResponse`, `django.db.IntegrityError`→`IntegrityErrorResponse`, anything else→`InternalErrorResponse` (logged `exc_info=True`). Example: `src/quiz/presentation/schema/mutations/mutations_admin.py`.
+5. **Use cases receive only services; only services receive repositories** — `application/*/use_case.py` constructors take `*Service`/`IdempotencyService`/`EventBus`, never a `domain/repositories/` port directly; repository access is a service's job. Example: `CreateQuizUseCase` (`quiz_service`, `tenant_validation_service`, `event_bus`, `idempotency_service` — all services) and `IdempotencyService` (`src/shared/application/idempotency_service.py`, wraps `IdempotencyReservationRepository` so no use case needs to).
 
 ---
 
@@ -110,6 +116,8 @@ make clean           # remove __pycache__, *.pyc, *.pyo, *~
 make test            # pytest
 make test-dev        # pytest -s -vv
 make test-snapshot   # pytest --snapshot-update (syrupy)
+make coverage        # coverage run -m pytest && coverage report
+make coverage-html   # + htmlcov/index.html
 
 # Docker / database / deployment
 make up              # pull + build + start services
@@ -119,7 +127,7 @@ make migrate         # migrate (in migrator service)
 # ... more targets, see Makefile
 ```
 
-To run a single test, use `pytest tests/path/to/test_file.py::test_name`.
+To run a single test: `make test-one TEST=tests/path/to/test_file.py::test_name` (or `pytest tests/path/to/test_file.py::test_name` directly).
 
 ---
 

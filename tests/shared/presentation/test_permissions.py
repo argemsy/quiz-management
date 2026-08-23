@@ -1,15 +1,16 @@
-import pytest
-from typing import Optional, List
+from typing import List, Optional
 
-from src.shared.presentation.schema.context import Info, Context
+import pytest
+
+from src.shared.presentation.schema.context import Context, Info
 from src.shared.presentation.schema.permissions import (
-    SessionPermissionEnum,
-    IsAuthenticated,
     IsAdmin,
-    IsStaff,
+    IsAuthenticated,
     IsOrganizationUser,
-    validate_permissions,
+    IsStaff,
+    SessionPermissionEnum,
     session_is_valid,
+    validate_permissions,
 )
 from src.shared.presentation.schema.types import UserSession
 
@@ -41,6 +42,7 @@ class MockInfo:
 
 
 # Fixtures
+
 
 @pytest.fixture
 def mock_info():
@@ -107,6 +109,7 @@ def admin_session():
 
 # Tests: session_is_valid()
 
+
 class TestSessionIsValid:
     def test_none_session_is_invalid(self):
         assert session_is_valid(None) is False
@@ -135,6 +138,7 @@ class TestSessionIsValid:
 
 # Tests: validate_permissions()
 
+
 class TestValidatePermissions:
     def test_unauthenticated_user_fails_all_checks(self):
         result = validate_permissions(
@@ -142,9 +146,7 @@ class TestValidatePermissions:
         )
         assert result is False
 
-    def test_authenticated_user_passes_authenticated_check(
-        self, authenticated_session
-    ):
+    def test_authenticated_user_passes_authenticated_check(self, authenticated_session):
         result = validate_permissions(
             authenticated_session, must=[SessionPermissionEnum.IS_AUTHENTICATED]
         )
@@ -207,6 +209,7 @@ class TestValidatePermissions:
 
 # Tests: Permission Classes
 
+
 class TestIsAuthenticatedPermission:
     def test_unauthenticated_user_denied(self, mock_info):
         permission = IsAuthenticated()
@@ -229,6 +232,7 @@ class TestIsAdminPermission:
     Staff can access admin resources (staff is superior).
     Admin can only access admin resources (not staff).
     """
+
     def test_unauthenticated_user_denied(self, mock_info):
         permission = IsAdmin()
         assert permission.has_permission(None, mock_info) is False
@@ -262,6 +266,7 @@ class TestIsStaffPermission:
     Only staff can access staff resources.
     Admin CANNOT access staff resources (admin < staff).
     """
+
     def test_unauthenticated_user_denied(self, mock_info):
         permission = IsStaff()
         assert permission.has_permission(None, mock_info) is False
@@ -320,6 +325,7 @@ class TestIsOrganizationUserPermission:
 
 # Integration tests: Access control matrix
 
+
 class TestAccessControlMatrix:
     """
     Test matrix verifying that:
@@ -338,21 +344,21 @@ class TestAccessControlMatrix:
                 True,  # Collaborator is authenticated
                 False,  # Collaborator cannot access admin resources
                 False,  # Collaborator cannot access staff resources
-                True,   # Collaborator can access org_user resources
+                True,  # Collaborator can access org_user resources
             ),  # Collaborator (lowest level)
             (
                 "admin",
-                True,   # Admin is authenticated
-                True,   # Admin can access admin resources
+                True,  # Admin is authenticated
+                True,  # Admin can access admin resources
                 False,  # Admin CANNOT access staff resources (admin < staff)
-                True,   # Admin can access org_user resources
+                True,  # Admin can access org_user resources
             ),  # Admin (tenant admin, middle level)
             (
                 "staff",
-                True,   # Staff is authenticated
-                True,   # Staff can access admin resources (staff > admin)
-                True,   # Staff can access staff resources
-                True,   # Staff can access org_user resources
+                True,  # Staff is authenticated
+                True,  # Staff can access admin resources (staff > admin)
+                True,  # Staff can access staff resources
+                True,  # Staff can access org_user resources
             ),  # Staff (system owner, highest level)
         ],
         ids=["unauthenticated", "collaborator", "admin", "staff"],

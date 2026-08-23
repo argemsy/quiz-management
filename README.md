@@ -15,7 +15,7 @@ como interfaz principal de la API.
 - **Event bus** en memoria (in-process pub/sub), con patrón dead-letter en la app `eventing`.
 - Auth por JWT (`PyJWT`) con clases de permisos custom en GraphQL — no se usa el sistema de
   permisos de Django.
-- **Testing**: `pytest` + `pytest-django` + `pytest-asyncio`.
+- **Testing**: `pytest` + `pytest-django` + `pytest-asyncio`, snapshots con `syrupy`. Cobertura actual: **94%** de `src/` (ver [Coverage](#coverage) abajo) — es una prioridad mantenerla alta, no un número decorativo.
 - **Linting**: `black` + `isort` + `flake8`.
 
 ## Apps
@@ -51,12 +51,21 @@ en la raíz, que solo lo leerían procesos corridos directo en el host.
 ```bash
 make test           # pytest
 make test-dev        # pytest -s -vv
+make test-snapshot   # pytest --snapshot-update (actualizar snapshots de syrupy)
+make coverage        # correr tests bajo coverage + reporte en terminal
+make coverage-html   # + reporte HTML en htmlcov/index.html
 make lint            # black + isort + flake8 sobre src/ y tests/
 make migrations      # makemigrations (dentro del servicio migrator)
 make migrate         # migrate (dentro del servicio migrator)
 ```
 
 Ver `Makefile` para la lista completa de targets.
+
+## Coverage
+
+Configurado en `pyproject.toml` (`[tool.coverage.run]`/`[tool.coverage.report]`), midiendo `src/` (excluye migraciones). **Mantener la cobertura alta es una prioridad del proyecto**, no un chequeo cosmético — antes de mergear un cambio, correr `make coverage` y no bajar el piso actual (94%). Sin `fail_under` todavía (no hay CI que lo haga cumplir); es responsabilidad de cada PR/commit revisarlo a mano hasta que exista.
+
+Detalle completo de cómo está armado el suite (fixtures por app, syrupy, freezegun, el gap de `factory-boy`) en la guía del vault: `quiz-management-testing-setup`.
 
 ## Documentación para desarrollo
 

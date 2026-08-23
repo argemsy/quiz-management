@@ -62,7 +62,12 @@ async def test_successful_login_with_a_tenant(
     )
 
     result = await use_case.execute(
-        LoginDTO(email="alice@example.com", password="secret123", tenant_id=tenant_id)
+        LoginDTO(
+            email="alice@example.com",
+            password="secret123",
+            tenant_id=tenant_id,
+            correlation_id="test-correlation-id",
+        )
     )
 
     assert result.is_staff is False
@@ -90,7 +95,12 @@ async def test_successful_staff_login_without_a_tenant(
     )
 
     result = await use_case.execute(
-        LoginDTO(email="staff@example.com", password="secret123", tenant_id=None)
+        LoginDTO(
+            email="staff@example.com",
+            password="secret123",
+            tenant_id=None,
+            correlation_id="test-correlation-id",
+        )
     )
 
     assert result.is_staff is True
@@ -116,7 +126,12 @@ async def test_login_rejected_for_invalid_credentials(
 
     with pytest.raises(InvalidCredentialsError):
         await use_case.execute(
-            LoginDTO(email="alice@example.com", password="wrong", tenant_id=None)
+            LoginDTO(
+                email="alice@example.com",
+                password="wrong",
+                tenant_id=None,
+                correlation_id="test-correlation-id",
+            )
         )
 
 
@@ -142,6 +157,7 @@ async def test_login_rejected_for_a_tenant_the_user_does_not_belong_to(
                 email="alice@example.com",
                 password="secret123",
                 tenant_id=uuid.uuid4(),
+                correlation_id="test-correlation-id",
             )
         )
 
@@ -164,5 +180,10 @@ async def test_login_rejected_for_non_staff_user_without_a_tenant(
 
     with pytest.raises(TenantRequiredError):
         await use_case.execute(
-            LoginDTO(email="alice@example.com", password="secret123", tenant_id=None)
+            LoginDTO(
+                email="alice@example.com",
+                password="secret123",
+                tenant_id=None,
+                correlation_id="test-correlation-id",
+            )
         )

@@ -11,7 +11,7 @@ from src.shared.presentation.schema.responses import (
 
 @strawberry.type(name="SwitchTenantSuccess")
 class SwitchTenantPayload:
-    operation_id: str
+    correlation_id: str
     token: str
     active_tenant_id: Optional[str] = None
     role: Optional[str] = None

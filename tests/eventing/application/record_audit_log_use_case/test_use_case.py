@@ -28,6 +28,7 @@ async def test_execute_records_an_entity_matching_the_dto(fake_audit_log_reposit
         object_repr="Tenant object",
         user=user_id,
         tenant=tenant_id,
+        correlation_id=str(uuid.uuid4()),
         previous_state={},
         current_state={"name": "Acme"},
     )

@@ -1,4 +1,4 @@
-.PHONY: help clean lint lint-src init down volume pull build up ps test test-dev test-snapshot prune migrations migrate reset_db createsuperuser docker-build tf-init tf-plan tf-apply tf-destroy tf-up
+.PHONY: help clean lint lint-src init down volume pull build up ps test test-dev test-one test-snapshot coverage coverage-html prune migrations migrate reset_db createsuperuser docker-build tf-init tf-plan tf-apply tf-destroy tf-up
 
 .ONESHELL:
 SHELL := /bin/bash
@@ -70,8 +70,24 @@ test: ## Run all tests via pytest
 test-dev: ## Run tests with verbose output and no capture
 	pytest -s -vv
 
+test-one: ## Run a single test: make test-one TEST=tests/path/to/test_file.py::test_name
+	@if [ -z "$(TEST)" ]; then \
+		echo "Usage: make test-one TEST=tests/path/to/test_file.py::test_name"; \
+		exit 1; \
+	fi
+	pytest -vv "$(TEST)"
+
 test-snapshot: ## Update syrupy snapshots
 	pytest --snapshot-update
+
+coverage: ## Run tests under coverage and print the terminal report (config: pyproject.toml [tool.coverage.*])
+	coverage run -m pytest
+	coverage report
+
+coverage-html: ## Same as `coverage`, plus an HTML report at htmlcov/index.html
+	coverage run -m pytest
+	coverage html
+	@echo "Report: htmlcov/index.html"
 
 # --- Docker Build & Deployment Utils ---
 docker-build: ## Build Docker image using buildkit

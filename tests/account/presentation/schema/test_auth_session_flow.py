@@ -16,46 +16,14 @@ from src.account.infrastructure.persistence.django.models import (
 from src.account.presentation.admin.user_tenant import UserTenantAdmin
 from src.account.shared.account_enums import TenantTypeEnum, UserTenantRoleEnum
 from src.shared.infrastructure.cache import RedisClientRegistry
+from tests.tools.graphql import read_graphql
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
-LOGIN_MUTATION = """
-mutation Login($email: String!, $password: String!, $tenantId: ID) {
-  account {
-    login(input: {email: $email, password: $password, tenant_id: $tenantId}) {
-      __typename
-      ... on LoginSuccess { token is_staff active_tenant_id role }
-      ... on ValidationErrorResponse { message }
-    }
-  }
-}
-"""
-
-REFRESH_MUTATION = """
-mutation Refresh($token: String!) {
-  account {
-    refresh_session(input: {token: $token}) {
-      __typename
-      ... on RefreshSessionSuccess { token is_staff active_tenant_id role }
-      ... on ValidationErrorResponse { message }
-    }
-  }
-}
-"""
-
-SWITCH_TENANT_MUTATION = """
-mutation SwitchTenant($tenantId: ID!) {
-  account {
-    switch_tenant(input: {tenant_id: $tenantId}) {
-      __typename
-      ... on SwitchTenantSuccess { token active_tenant_id role }
-      ... on ValidationErrorResponse { message }
-    }
-  }
-}
-"""
-
-TYPENAME_QUERY = "{ __typename }"
+LOGIN_MUTATION = read_graphql("tests/graphql/mutations/login.graphql")
+REFRESH_MUTATION = read_graphql("tests/graphql/mutations/refresh_session.graphql")
+SWITCH_TENANT_MUTATION = read_graphql("tests/graphql/mutations/switch_tenant.graphql")
+TYPENAME_QUERY = read_graphql("tests/graphql/queries/typename.graphql")
 
 
 @pytest.fixture(autouse=True)
@@ -68,8 +36,11 @@ def _reset_redis_registry():
     RedisClientRegistry.reset_for_tests()
 
 
-def _headers(operation_id: str | None = None, token: str | None = None) -> dict:
-    headers = {"X-Operation-ID": operation_id or str(uuid.uuid4())}
+def _headers(correlation_id: str | None = None, token: str | None = None) -> dict:
+    headers = {
+        "X-Correlation-ID": correlation_id or str(uuid.uuid4()),
+        "X-Operation-ID": str(uuid.uuid4()),
+    }
     if token:
         headers["Authorization"] = f"Bearer {token}"
     return headers

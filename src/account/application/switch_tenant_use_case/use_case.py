@@ -28,6 +28,7 @@ class SwitchTenantUseCase:
 
         logger.info(
             "tenant_switched",
+            correlation_id=dto.correlation_id,
             user_id=str(claims.user_id),
             active_tenant_id=str(claims.active_tenant_id),
         )

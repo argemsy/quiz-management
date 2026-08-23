@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
 
+from src.quiz.domain.exceptions import InvalidQuestionError
 from src.quiz.shared.quiz_enums import QuestionResponseTypeEnum
 
 
@@ -20,4 +21,6 @@ class QuestionEntity:
 
     def __post_init__(self) -> None:
         if not self.answer_choices:
-            raise ValueError("A question must have at least one answer choice")
+            raise InvalidQuestionError(
+                "A question must have at least one answer choice"
+            )

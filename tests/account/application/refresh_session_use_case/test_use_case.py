@@ -85,7 +85,9 @@ async def test_refresh_of_a_stale_but_valid_session_reflects_the_current_role(
         fake_permission_version_repository,
         token_service,
     )
-    result = await use_case.execute(RefreshSessionDTO(token=old_token))
+    result = await use_case.execute(
+        RefreshSessionDTO(token=old_token, correlation_id="test-correlation-id")
+    )
 
     assert result.role == "ADMIN"
     decoded = token_service.decode(result.token)
@@ -115,7 +117,9 @@ async def test_refresh_rejected_for_an_expired_token(
 
     with freeze_time("2026-01-01 01:00:00"):
         with pytest.raises(InvalidSessionError):
-            await use_case.execute(RefreshSessionDTO(token=token))
+            await use_case.execute(
+                RefreshSessionDTO(token=token, correlation_id="test-correlation-id")
+            )
 
 
 @pytest.mark.asyncio
@@ -133,4 +137,8 @@ async def test_refresh_rejected_for_a_tampered_token(
     )
 
     with pytest.raises(InvalidSessionError):
-        await use_case.execute(RefreshSessionDTO(token="not-a-real-token"))
+        await use_case.execute(
+            RefreshSessionDTO(
+                token="not-a-real-token", correlation_id="test-correlation-id"
+            )
+        )

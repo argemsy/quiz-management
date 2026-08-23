@@ -1,0 +1,9 @@
+mutation SwitchTenant($tenantId: ID!) {
+  account {
+    switch_tenant(input: { tenant_id: $tenantId }) {
+      __typename
+      ... on SwitchTenantSuccess { token active_tenant_id role }
+      ... on ValidationErrorResponse { message }
+    }
+  }
+}

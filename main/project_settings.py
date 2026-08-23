@@ -50,6 +50,17 @@ class RedisSettings(_GroupSettings):
     )
 
 
+class RateLimitSettings(_GroupSettings):
+    general_limit: int = Field(default=100, validation_alias="RATE_LIMIT_GENERAL_LIMIT")
+    general_window_seconds: int = Field(
+        default=60, validation_alias="RATE_LIMIT_GENERAL_WINDOW_SECONDS"
+    )
+    login_limit: int = Field(default=10, validation_alias="RATE_LIMIT_LOGIN_LIMIT")
+    login_window_seconds: int = Field(
+        default=900, validation_alias="RATE_LIMIT_LOGIN_WINDOW_SECONDS"
+    )
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
@@ -62,6 +73,7 @@ class Settings(BaseSettings):
     DATABASE: DatabaseSettings = Field(default_factory=DatabaseSettings)
     SECURITY: SecuritySettings = Field(default_factory=SecuritySettings)
     REDIS: RedisSettings = Field(default_factory=RedisSettings)
+    RATE_LIMIT: RateLimitSettings = Field(default_factory=RateLimitSettings)
 
     @model_validator(mode="after")
     def _reject_placeholder_secret_outside_local(self) -> "Settings":

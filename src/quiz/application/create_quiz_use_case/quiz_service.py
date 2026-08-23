@@ -7,11 +7,18 @@ class QuizService:
     def __init__(self, repository: QuizRepository) -> None:
         self.repository = repository
 
-    async def create_quiz(self, dto: CreateQuizDTO) -> QuizEntity:
-        quiz = QuizEntity(
+    def build_entity(self, dto: CreateQuizDTO) -> QuizEntity:
+        return QuizEntity(
             quiz_type=dto.quiz_type,
             tenant=dto.tenant_id,
             tenant_user=dto.tenant_user_id,
             configuration=QuizConfiguration(**dto.configuration),
         )
-        return await self.repository.create(quiz)
+
+    async def create_quiz(self, dto: CreateQuizDTO) -> QuizEntity:
+        return await self.repository.create(self.build_entity(dto))
+
+    def save_sync(self, quiz: QuizEntity) -> QuizEntity:
+        """Sync counterpart to `create_quiz`, for composing into another
+        transaction — see `QuizRepository.save_sync`."""
+        return self.repository.save_sync(quiz)

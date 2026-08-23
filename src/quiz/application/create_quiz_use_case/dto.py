@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from src.quiz.shared.quiz_enums import QuestionResponseTypeEnum, QuizTypeEnum
+from src.shared.application.dto import CorrelationIdDTO, OperationIdDTO
 
 
 class AnswerChoiceDTO(BaseModel):
@@ -21,10 +22,12 @@ class QuestionDTO(BaseModel):
     answer_choices: list[AnswerChoiceDTO]
 
 
-class CreateQuizDTO(BaseModel):
+class CreateQuizDTO(CorrelationIdDTO, OperationIdDTO):
     """Validated input for `CreateQuizUseCase`. Built by the GraphQL resolver
     from `CreateQuizInput` — kept free of any strawberry/presentation import
-    so the application layer doesn't depend on it."""
+    so the application layer doesn't depend on it. Carries `correlation_id`
+    (propagated to `EventBusMessage`) and `operation_id` (idempotency key
+    for `IdempotencyService`) since this is the only use case with both."""
 
     model_config = ConfigDict(frozen=True)
 

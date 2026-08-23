@@ -62,7 +62,11 @@ async def test_switch_to_a_tenant_the_user_belongs_to(
     )
 
     result = await use_case.execute(
-        SwitchTenantDTO(user_id=user.id, tenant_id=tenant_id)
+        SwitchTenantDTO(
+            user_id=user.id,
+            tenant_id=tenant_id,
+            correlation_id="test-correlation-id",
+        )
     )
 
     assert result.active_tenant_id == tenant_id
@@ -86,4 +90,10 @@ async def test_switch_rejected_for_a_tenant_the_user_does_not_belong_to(
     )
 
     with pytest.raises(MembershipNotFoundError):
-        await use_case.execute(SwitchTenantDTO(user_id=user.id, tenant_id=uuid.uuid4()))
+        await use_case.execute(
+            SwitchTenantDTO(
+                user_id=user.id,
+                tenant_id=uuid.uuid4(),
+                correlation_id="test-correlation-id",
+            )
+        )

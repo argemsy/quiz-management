@@ -11,7 +11,7 @@ from src.shared.presentation.schema.responses import (
 
 @strawberry.type(name="RefreshSessionSuccess")
 class RefreshSessionPayload:
-    operation_id: str
+    correlation_id: str
     token: str
     is_staff: bool
     active_tenant_id: Optional[str] = None

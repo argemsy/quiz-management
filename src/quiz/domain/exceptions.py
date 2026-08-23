@@ -1,6 +1,6 @@
 import uuid
 
-from src.shared.domain.exceptions import NotFoundError
+from src.shared.domain.exceptions import DomainError, NotFoundError
 
 
 class TenantNotFoundError(NotFoundError):
@@ -16,3 +16,10 @@ class TenantUserNotFoundError(NotFoundError):
         )
         self.tenant_id = tenant_id
         self.tenant_user_id = tenant_user_id
+
+
+class InvalidQuestionError(DomainError):
+    """Raised by `QuestionEntity.__post_init__` when a question fails its
+    own invariants (e.g. no answer choices) — a `DomainError` subclass so
+    `@handle_mutations_exceptions` maps it to `ValidationErrorResponse`,
+    not the catch-all `InternalErrorResponse`."""

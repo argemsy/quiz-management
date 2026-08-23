@@ -22,6 +22,7 @@ async def handle_questions_requested(event: EventBusMessage) -> None:
         tenant=event.data["tenant"],
         tenant_user=event.data["tenant_user"],
         questions=event.data["questions"],
+        correlation_id=event.correlation_id,
     )
     use_case = CreateQuestionsUseCase(QuestionService(QuestionRepositoryImpl()))
     await use_case.execute(dto)

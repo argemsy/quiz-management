@@ -3,8 +3,10 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from src.shared.application.dto import CorrelationIdDTO
 
-class RefreshSessionDTO(BaseModel):
+
+class RefreshSessionDTO(CorrelationIdDTO):
     model_config = ConfigDict(frozen=True)
 
     token: str

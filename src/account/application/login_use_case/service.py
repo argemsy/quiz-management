@@ -18,7 +18,9 @@ class LoginService:
     async def login(
         self, email: str, password: str, tenant_id: uuid.UUID | None
     ) -> SessionClaims:
+
         user = await self.user_repository.authenticate(email, password)
+
         if user is None:
             raise InvalidCredentialsError()
 

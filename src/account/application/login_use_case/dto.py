@@ -3,8 +3,10 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from src.shared.application.dto import CorrelationIdDTO
 
-class LoginDTO(BaseModel):
+
+class LoginDTO(CorrelationIdDTO):
     model_config = ConfigDict(frozen=True)
 
     email: str

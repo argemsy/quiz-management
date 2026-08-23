@@ -7,6 +7,12 @@ class FailedEventStatus(EnumChoices):
     ABANDONED = "ABANDONED"
 
 
+class IdempotencyKeyStatus(EnumChoices):
+    IN_PROGRESS = "IN_PROGRESS"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED_TERMINAL = "FAILED_TERMINAL"
+
+
 class AuditLogContentTypeEnum(EnumChoices):
     """Every model, across bounded contexts, that AuditLog can record changes for."""
 

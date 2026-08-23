@@ -1,6 +1,5 @@
 from typing import Any, Optional
 
-import strawberry
 from strawberry.permission import BasePermission
 
 from src.shared.domain.enums import EnumChoices
@@ -90,6 +89,7 @@ class IsAdmin(BasePermission):
 
     Staff (system owner) can also access admin resources (staff > admin hierarchy).
     """
+
     message = "AuthenticationError: User does not have 'Admin' Role or higher"
     must = [
         SessionPermissionEnum.IS_AUTHENTICATED,
@@ -110,6 +110,7 @@ class IsStaff(BasePermission):
     Admin CANNOT access staff resources (admin < staff hierarchy).
     Only authenticated staff users can access.
     """
+
     message = "AuthenticationError: User does not have 'Staff' (System Owner) Role"
     must = [
         SessionPermissionEnum.IS_AUTHENTICATED,
@@ -126,7 +127,10 @@ class IsOrganizationUser(BasePermission):
 
     Includes: Staff > Admin > Collaborator hierarchy.
     """
-    message = "AuthenticationError: User is not authenticated or does not have valid role"
+
+    message = (
+        "AuthenticationError: User is not authenticated or does not have valid role"
+    )
 
     must = [
         SessionPermissionEnum.IS_AUTHENTICATED,

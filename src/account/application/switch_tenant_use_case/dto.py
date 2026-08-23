@@ -3,8 +3,10 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from src.shared.application.dto import CorrelationIdDTO
 
-class SwitchTenantDTO(BaseModel):
+
+class SwitchTenantDTO(CorrelationIdDTO):
     """`user_id` is deliberately not client-supplied input — the mutation
     resolver fills it in from the authenticated session
     (`info.context.user_session`), never from a GraphQL argument, so a

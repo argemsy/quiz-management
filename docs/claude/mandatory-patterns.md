@@ -92,20 +92,35 @@ use_case = CreateQuizUseCase(
 
 ---
 
-### 3. `operation_id` for mutation idempotency
-**Rule**: `operation_id` **ALWAYS** comes from the client via `X-Operation-ID` header. **NEVER** generate server-side.
+### 3. `correlation_id` (tracing) and `operation_id` (idempotency) — two client-supplied ids, never server-generated
+**Rule**: Every mutation request carries **two** distinct client-supplied ids — `correlation_id` (`X-Correlation-ID`) for tracing, `operation_id` (`X-Operation-ID`) for idempotency. Both **ALWAYS** come from the client. **NEVER** generate either server-side. Fail fast (raise) if either header is missing.
+
+Before `mutation-idempotency-rate-limit`, a single `operation_id` did both jobs at once (echoed in every response purely for log correlation, while its docstring already claimed — inaccurately, since no dedup logic existed yet — that it was "for idempotency"). The two concerns were split once real idempotency enforcement was built, because they have different lifecycles: `correlation_id` is required and read on **every** mutation (`mutation_handler.py`'s `async_wrapper` accesses it unconditionally); `operation_id` is likewise required on every mutation (same fail-fast enforcement, so no mutation is exempt), but only a use case that's actually wired for idempotency (currently `create_quiz` — see `IdempotencyReservationRepository` in pattern 2's cross-app example) does anything with it beyond the required-header check and the generic Redis fast-path lock.
 
 ❌ **WRONG**:
 ```python
 @cached_property
-def operation_id(self) -> str:
+def correlation_id(self) -> str:
     if not (req := self.request):
-        return get_operation_id()  # server generates — breaks idempotency!
-    return req.headers.get("X-Operation-ID") or get_operation_id()
+        return str(uuid.uuid4())  # server generates — breaks tracing across a real retry!
+    return req.headers.get("X-Correlation-ID") or str(uuid.uuid4())
 ```
 
-✅ **CORRECT**:
+✅ **CORRECT** (`src/shared/presentation/schema/context.py`):
 ```python
+@cached_property
+def correlation_id(self) -> str:
+    if not (req := self.request):
+        raise ValueError("correlation_id requires HTTP request context")
+    correlation_id = req.headers.get("X-Correlation-ID")
+    if not correlation_id:
+        raise ValueError(
+            "X-Correlation-ID header is required to trace a mutation "
+            "and everything it publishes. Client must generate and send "
+            "a unique UUID per request."
+        )
+    return correlation_id
+
 @cached_property
 def operation_id(self) -> str:
     if not (req := self.request):
@@ -114,14 +129,19 @@ def operation_id(self) -> str:
     if not operation_id:
         raise ValueError(
             "X-Operation-ID header is required for mutation idempotency. "
-            "Client must generate and send a unique UUID per request."
+            "Client must generate and send a unique UUID per mutation "
+            "attempt, never server-side."
         )
-    return operation_id  # return what client sent, never generate
+    return operation_id
 ```
 
-**Why**: If the server generates a new ID on each retry, the operation isn't idempotent — duplicate execution results. The client must own the ID and resend the same one on network retry. This is enforced by failing fast if the header is missing.
+**Why**: If the server generates either id, the guarantee it exists for breaks. For `correlation_id`: a server-generated id on a network retry can't be tied back to the original attempt's logs/events, defeating tracing. For `operation_id`: a server-generated id changes on every retry, so the operation isn't idempotent — duplicate execution results. The client owns both ids and resends the *same* `operation_id` — never a new `correlation_id`, since a retry is still logically the same attempt for tracing purposes too — on a network retry of the same logical action; it mints a **new** `operation_id` only after seeing a terminal response (success or business/validation error), never after an unresolved attempt. Both are enforced by failing fast if their header is missing.
 
-**Example**: `src/shared/presentation/schema/context.py`, `Context.operation_id`
+**Idempotency enforcement itself** (not just carrying the id) has two layers, and Redis alone is *not* the guarantee:
+- **Redis fast-path** (`src/shared/infrastructure/cache/idempotency_lock.py`): a short-TTL `SET NX EX` lock, purely to skip a Postgres round-trip for the common duplicate-click case. Fails open on Redis being unreachable — it isn't the correctness guarantee, so failing open here doesn't risk a duplicate record.
+- **Postgres unique constraint** (`IdempotencyKey.operation_id`, owned by `eventing` — see `IdempotencyReservationRepository.reserve_and_run`): the actual guarantee. The reservation insert and the mutation's business write happen in one `transaction.atomic()` block; a repeated `operation_id` surfaces as `IntegrityError` on the unique constraint, which `reserve_and_run` turns into `DuplicateOperationError` for the caller to handle (replay the prior outcome) instead of re-executing.
+
+**Example**: `src/shared/presentation/schema/context.py` (`Context.correlation_id`/`Context.operation_id`); `src/quiz/application/create_quiz_use_case/use_case.py` + `src/quiz/presentation/schema/mutations/mutations_admin.py` (`create_quiz`/`_replay_create_quiz`) for a full reference implementation of the enforcement layers above.
 
 ---
 
@@ -135,11 +155,11 @@ async def create_quiz(self, info: Info, input: CreateQuizInput) -> CreateQuizRes
     try:
         dto = CreateQuizDTO.model_validate(strawberry.asdict(input))
         quiz = await use_case.execute(dto)
-        return CreateQuizPayload(operation_id=info.context.operation_id, payload=quiz)
+        return CreateQuizPayload(correlation_id=info.context.correlation_id, payload=quiz)
     except DomainError as e:
-        return ValidationErrorResponse(operation_id=..., message=str(e))
+        return ValidationErrorResponse(correlation_id=..., message=str(e))
     except InfrastructureError as e:
-        return IntegrityErrorResponse(operation_id=..., message=str(e))
+        return IntegrityErrorResponse(correlation_id=..., message=str(e))
     # ... repeat for other exceptions
 ```
 
@@ -148,10 +168,12 @@ async def create_quiz(self, info: Info, input: CreateQuizInput) -> CreateQuizRes
 @strawberry.mutation(permission_classes=[IsStaff])
 @handle_mutations_exceptions
 async def create_quiz(self, info: Info, input: CreateQuizInput) -> CreateQuizResponse:
-    operation_id = info.context.operation_id
-    dto = CreateQuizDTO.model_validate(strawberry.asdict(input))
-    quiz_entity = await use_case.execute(dto, operation_id)
-    return CreateQuizPayload(operation_id=operation_id, payload=QuizType(value=quiz_entity))
+    correlation_id = info.context.correlation_id
+    dto = CreateQuizDTO.model_validate(
+        {**strawberry.asdict(input), "correlation_id": correlation_id, "operation_id": info.context.operation_id}
+    )
+    quiz_entity = await use_case.execute(dto)  # ids travel on the DTO, not as loose args — see pattern 5
+    return CreateQuizPayload(correlation_id=correlation_id, payload=QuizType(value=quiz_entity))
 ```
 
 The decorator (`src/shared/presentation/decorators/mutation_handler.py`) handles all exception mapping:
@@ -161,6 +183,64 @@ The decorator (`src/shared/presentation/decorators/mutation_handler.py`) handles
 - `django.db.IntegrityError` → `IntegrityErrorResponse`
 - Any other `Exception` → `InternalErrorResponse` (logged with `exc_info=True`)
 
-All responses carry `operation_id`.
+All responses carry `correlation_id`. The decorator also enforces `operation_id`'s required-header check and the Redis idempotency fast-path lock (pattern 3) on every mutation — a use case wired for full idempotency enforcement carries `operation_id` on its DTO as shown in pattern 5's example, and its resolver catches `DuplicateOperationError` to replay a prior outcome instead of returning it as a new error.
 
 **Example**: `src/quiz/presentation/schema/mutations/mutations_admin.py`
+
+---
+
+### 5. Use cases receive only services; only services receive repositories
+**Rule**: `application/*/use_case.py` constructors take services (`*Service`, `IdempotencyService`, `EventBus`) — never a `domain/repositories/` port directly. If a use case needs a repository-backed operation, wrap it in a service first.
+
+❌ **BAD**:
+```python
+# quiz/application/create_quiz_use_case/use_case.py
+class CreateQuizUseCase:
+    def __init__(
+        self,
+        quiz_service: QuizService,
+        idempotency_repository: IdempotencyReservationRepository,  # a repository, not a service
+    ) -> None:
+        self.idempotency_repository = idempotency_repository
+
+    async def execute(self, dto: CreateQuizDTO, correlation_id: str, operation_id: str) -> QuizEntity:
+        quiz = await self.idempotency_repository.reserve_and_run(operation_id, ...)
+        await self.idempotency_repository.mark_terminal(operation_id, ...)
+        ...
+```
+
+✅ **GOOD**:
+```python
+# shared/application/idempotency_service.py — generic wrapper, reusable by any use case
+class IdempotencyService:
+    def __init__(self, repository: IdempotencyReservationRepository) -> None:
+        self.repository = repository
+
+    async def run(self, operation_id: str, write: Callable[[], T]) -> T:
+        return await self.repository.reserve_and_run(operation_id, write)
+
+    async def mark_success(self, operation_id: str, response_payload: dict) -> None:
+        await self.repository.mark_terminal(operation_id, IdempotencyOutcome.SUCCEEDED, response_payload)
+
+# quiz/application/create_quiz_use_case/use_case.py
+class CreateQuizUseCase:
+    def __init__(
+        self,
+        quiz_service: QuizService,
+        tenant_validation_service: TenantValidationService,
+        event_bus: EventBus,
+        idempotency_service: IdempotencyService,  # a service, wrapping the repository itself
+    ) -> None:
+        self.idempotency_service = idempotency_service
+
+    async def execute(self, dto: CreateQuizDTO) -> QuizEntity:
+        quiz = await self.idempotency_service.run(dto.operation_id, ...)
+        await self.idempotency_service.mark_success(dto.operation_id, ...)
+        ...
+```
+
+**Why**: A use case orchestrates business steps; a service owns how one of those steps is actually persisted. Letting a use case reach for a repository directly blurs that line and tends to spread repository-specific plumbing (transaction wrapping, retry semantics) into orchestration code that should stay declarative. `IdempotencyReservationRepository` is cross-cutting infra with no single owning app (same reasoning as its port living in `src/shared/domain/repositories/`, not `eventing`'s domain) — `IdempotencyService` is its equally-owner-less wrapper, so the next mutation that needs idempotency reuses it instead of re-deriving the pattern.
+
+**Related**: `CreateQuizDTO`, and every other use case DTO invoked from a GraphQL mutation resolver, additionally carries `correlation_id`/`operation_id` via the interface-segregated mixins `CorrelationIdDTO`/`OperationIdDTO` (`src/shared/application/dto.py`) instead of `execute()` taking them as loose parameters — a DTO inherits only the mixin(s) it actually needs (e.g. `CreateQuizDTO` needs both; `LoginDTO` needs only `CorrelationIdDTO`, no idempotency-protected write). This keeps a use case's full input — business fields and cross-cutting ids alike — in one immutable, typed place.
+
+**Example**: `src/quiz/application/create_quiz_use_case/use_case.py` (`CreateQuizUseCase`), `src/shared/application/idempotency_service.py` (`IdempotencyService`), `src/shared/application/dto.py` (`CorrelationIdDTO`/`OperationIdDTO`).

@@ -24,7 +24,11 @@ class RefreshSessionUseCase:
         claims = await self.refresh_session_service.refresh(dto.token)
         token = self.token_service.encode(claims)
 
-        logger.info("session_refreshed", user_id=str(claims.user_id))
+        logger.info(
+            "session_refreshed",
+            correlation_id=dto.correlation_id,
+            user_id=str(claims.user_id),
+        )
 
         return RefreshSessionResultDTO(
             token=token,
