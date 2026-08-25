@@ -4,7 +4,9 @@ import pytest
 
 from src.quiz.infrastructure.persistence.django.models import (
     AnswerChoiceModel,
+    AreaModel,
     QuestionModel,
+    QuizAreaModel,
     QuizFormModel,
     QuizModel,
 )
@@ -68,5 +70,37 @@ def make_quiz_form(make_quiz):
         }
         defaults.update(overrides)
         return QuizFormModel.objects.create(**defaults)
+
+    return _make
+
+
+@pytest.fixture
+def make_area(db):
+    def _make(parent=None, **overrides):
+        defaults = {
+            "name": "Ciencias",
+            "parent": parent,
+            "tenant": parent.tenant if parent else uuid.uuid4(),
+            "tenant_user": parent.tenant_user if parent else uuid.uuid4(),
+        }
+        defaults.update(overrides)
+        return AreaModel.objects.create(**defaults)
+
+    return _make
+
+
+@pytest.fixture
+def make_quiz_area(make_quiz, make_area):
+    def _make(quiz=None, area=None, **overrides):
+        quiz = quiz or make_quiz()
+        area = area or make_area(tenant=quiz.tenant, tenant_user=quiz.tenant_user)
+        defaults = {
+            "quiz": quiz,
+            "area": area,
+            "tenant": quiz.tenant,
+            "tenant_user": quiz.tenant_user,
+        }
+        defaults.update(overrides)
+        return QuizAreaModel.objects.create(**defaults)
 
     return _make

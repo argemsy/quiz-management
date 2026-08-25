@@ -37,8 +37,10 @@ class UserTenant(QuizTimeStampMixin, QuizActiveMixin, QuizSoftDeleteMixin):
         choices=UserTenantRoleEnum.choices(),
         default=UserTenantRoleEnum.COLLABORATOR.value,
     )
+    # `deactivated_at` is not declared here: `QuizActiveMixin` now provides
+    # it, and a local redeclaration would shadow the mixin's with an
+    # identical field that has to be kept in sync by hand.
     activated_at = models.DateTimeField(blank=True, null=True, editable=False)
-    deactivated_at = models.DateTimeField(blank=True, null=True, editable=False)
 
     def __str__(self):
         return self.user.email

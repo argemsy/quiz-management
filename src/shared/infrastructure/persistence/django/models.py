@@ -28,6 +28,10 @@ class QuizSoftDeleteMixin(models.Model):
 
 class QuizActiveMixin(models.Model):
     is_active = models.BooleanField(default=True)
+    # Nullable with no backfill: rows deactivated before this field existed
+    # were deactivated at an unknown time, and NULL says so honestly. Readers
+    # must treat NULL as "unknown", not as "never deactivated".
+    deactivated_at = models.DateTimeField(blank=True, null=True, editable=False)
 
     class Meta:
         abstract = True
