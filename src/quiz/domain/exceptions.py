@@ -33,6 +33,20 @@ class InvalidQuizConfigurationError(DomainError):
     `InternalErrorResponse`."""
 
 
+class InvalidAreaHierarchyError(DomainError):
+    """Raised when an area's placement would break the two-level cap — the
+    invariant that keeps cycles unrepresentable. A `DomainError` so a future
+    mutation maps it to `ValidationErrorResponse`."""
+
+
+class DuplicateAreaError(DomainError):
+    def __init__(self, name: str, parent_name: str | None) -> None:
+        location = f"under {parent_name!r}" if parent_name else "at the root"
+        super().__init__(f"An active area named {name!r} already exists {location}")
+        self.name = name
+        self.parent_name = parent_name
+
+
 class QuestionLimitExceededError(DomainError):
     def __init__(self, submitted: int, allowed: int) -> None:
         super().__init__(
