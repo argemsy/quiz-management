@@ -26,6 +26,10 @@ class AnswerChoice(QuizTimeStampMixin, QuizActiveMixin, QuizSoftDeleteMixin):
     is_correct = models.BooleanField(
         default=False,
     )
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text="Position of this choice within its question, starting at 1.",
+    )
     tenant = models.UUIDField(
         db_column="tenant_id",
         editable=False,
@@ -41,6 +45,9 @@ class AnswerChoice(QuizTimeStampMixin, QuizActiveMixin, QuizSoftDeleteMixin):
         db_table = "answer_choice"
         verbose_name = "Answer Choice"
         verbose_name_plural = "Answer Choices"
+        # See `Question.Meta.ordering` — the `created_at` tie-break is what
+        # makes the order total.
+        ordering = ("order", "created_at")
 
         constraints = [
             models.UniqueConstraint(
@@ -61,5 +68,9 @@ class AnswerChoice(QuizTimeStampMixin, QuizActiveMixin, QuizSoftDeleteMixin):
                     is_deleted=False,
                 ),
                 name="idx_answer_question_active",
+            ),
+            models.Index(
+                fields=("question", "order"),
+                name="idx_answer_question_order",
             ),
         ]

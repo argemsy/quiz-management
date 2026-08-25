@@ -23,6 +23,10 @@ class Question(QuizTimeStampMixin, QuizActiveMixin, QuizSoftDeleteMixin):
         default=QuestionResponseTypeEnum.SINGLE.value,
     )
     quiz = models.ForeignKey("Quiz", on_delete=models.PROTECT, related_name="questions")
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text="Position of this question within its quiz, starting at 1.",
+    )
     tenant = models.UUIDField(
         db_column="tenant_id",
         editable=False,
@@ -38,6 +42,9 @@ class Question(QuizTimeStampMixin, QuizActiveMixin, QuizSoftDeleteMixin):
         db_table = "question"
         verbose_name = "Question"
         verbose_name_plural = "Questions"
+        # `created_at` is not decoration: it makes the order total when two
+        # questions share a position, so no read is ever non-deterministic.
+        ordering = ("order", "created_at")
         constraints = [
             models.UniqueConstraint(
                 fields=(
@@ -61,5 +68,9 @@ class Question(QuizTimeStampMixin, QuizActiveMixin, QuizSoftDeleteMixin):
                     is_deleted=False,
                 ),
                 name="idx_question_quiz_active",
+            ),
+            models.Index(
+                fields=("quiz", "order"),
+                name="idx_question_quiz_order",
             ),
         ]

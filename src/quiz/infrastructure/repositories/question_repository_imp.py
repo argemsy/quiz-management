@@ -32,6 +32,7 @@ class QuestionRepositoryImpl(QuestionRepository):
                     text=question.text,
                     response_type=question.response_type.value,
                     quiz_id=quiz_id,
+                    order=question.order,
                     tenant=tenant,
                     tenant_user=tenant_user,
                 )
@@ -43,6 +44,7 @@ class QuestionRepositoryImpl(QuestionRepository):
                         text=choice.text,
                         is_correct=choice.is_correct,
                         question_id=question_id,
+                        order=choice.order,
                         tenant=tenant,
                         tenant_user=tenant_user,
                     )
@@ -58,6 +60,7 @@ class QuestionRepositoryImpl(QuestionRepository):
                 text=q.text,
                 response_type=q.response_type,
                 answer_choices=question.answer_choices,
+                order=q.order,
             )
             for q, question in zip(questions_to_create, questions)
         ]

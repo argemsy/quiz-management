@@ -31,6 +31,7 @@ def make_question(make_quiz):
             "text": "What is dependency injection?",
             "response_type": "SINGLE",
             "quiz": quiz,
+            "order": QuestionModel.objects.filter(quiz=quiz).count() + 1,
             "tenant": quiz.tenant,
             "tenant_user": quiz.tenant_user,
         }
@@ -47,6 +48,7 @@ def make_answer_choice(make_question):
         defaults = {
             "text": "Because it decouples dependencies",
             "question": question,
+            "order": AnswerChoiceModel.objects.filter(question=question).count() + 1,
             "tenant": question.tenant,
             "tenant_user": question.tenant_user,
         }
