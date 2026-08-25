@@ -10,12 +10,12 @@ class ActivableAdminMixin:
 
     @admin.action(description=_("Activate selected"))
     def activate_instances(self, request, queryset):
-        updated = queryset.update(is_active=True)
+        updated = queryset.update(is_active=True, deactivated_at=None)
         self.message_user(request, f"{updated} instance(s) activated.")
 
     @admin.action(description=_("Deactivate selected"))
     def deactivate_instances(self, request, queryset):
-        updated = queryset.update(is_active=False)
+        updated = queryset.update(is_active=False, deactivated_at=timezone.now())
         self.message_user(request, f"{updated} instance(s) deactivated.")
 
 
