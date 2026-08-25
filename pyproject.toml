@@ -1,0 +1,74 @@
+[project]
+name = "quiz-management"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Arge",email = "argenis1818@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    # --- Web / API ---
+    "django (>=6.1,<7.0)",
+    "fastapi (>=0.141.1,<0.142.0)",
+    "strawberry-graphql (>=0.324.0,<0.325.0)",
+    "uvicorn (>=0.52.3,<0.53.0)",
+    "pyjwt (>=2.13.0,<3.0.0)",
+    "asgiref (>=3.12.1,<4.0.0)",
+    # --- Data / persistence ---
+    "psycopg2-binary (>=2.9.12,<3.0.0)",
+    "dj-database-url (>=3.1.2,<4.0.0)",
+    "redis (>=8.1.0,<9.0.0)",
+    # --- Validation / settings ---
+    "pydantic (>=2.13.4,<3.0.0)",
+    "pydantic-settings (>=2.15.0,<3.0.0)",
+    # --- Utilities ---
+    "httpx (>=0.28.1,<0.29.0)",
+    "python-dotenv (>=1.2.2,<2.0.0)",
+    "nanoid (>=2.0.0,<3.0.0)",
+    "structlog (>=26.1.0,<27.0.0)",
+    "pytz (>=2026.3.post1,<2027.0)",
+]
+
+[tool.poetry.group.dev.dependencies]
+# --- Lint / format ---
+black = ">=26.5.1,<27.0.0"
+isort = ">=8.0.1,<9.0.0"
+flake8 = ">=7.3.0,<8.0.0"
+# --- Testing ---
+pytest = ">=9.1.1,<10.0.0"
+pytest-asyncio = ">=1.4.0,<2.0.0"
+pytest-django = ">=4.14.0,<5.0.0"
+syrupy = ">=5.5.3,<6.0.0"
+freezegun = ">=1.5.5,<2.0.0"
+coverage = ">=7.15.4,<8.0.0"
+factory-boy = ">=3.3.3,<4.0.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip_glob = ["*/migrations/*"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/migrations/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+]

@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.venv/
+venv/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Base de datos local
+db.sqlite3
+*.sqlite3
+
+# Variables de entorno
+.env
+.env.*
+!.env.example
+devops/docker.env
+!devops/docker.env.example
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Claude Code / editor project files
+.claude/
+
+# Logs
+*.log
