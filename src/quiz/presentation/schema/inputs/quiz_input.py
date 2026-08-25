@@ -1,15 +1,24 @@
 import strawberry
 
 from src.quiz.presentation.schema.inputs.question_input import QuizQuestionInput
-from src.quiz.presentation.schema.quiz_enums import StrawberryQuizTypeEnum
+from src.quiz.presentation.schema.quiz_enums import (
+    StrawberryOrderStrategyEnum,
+    StrawberryQuizTypeEnum,
+)
 
 
 @strawberry.input
 class QuizConfigurationInput:
     total_questions_allowed: int = 20
+    min_questions_allowed: int = 1
+    max_answers_allowed: int = 5
     time_limit_minutes: int = 60
     allow_review: bool = True
     allowed_attempts: int | None = None
+    question_order: StrawberryOrderStrategyEnum = (
+        StrawberryOrderStrategyEnum.AS_AUTHORED
+    )
+    answer_order: StrawberryOrderStrategyEnum = StrawberryOrderStrategyEnum.AS_AUTHORED
 
 
 @strawberry.input

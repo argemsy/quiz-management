@@ -39,3 +39,25 @@ class CommonAdminActionsMixin(ActivableAdminMixin, SoftDeleteAdminMixin):
     """Combines activate/deactivate + soft-delete/restore bulk actions."""
 
     actions = ActivableAdminMixin.actions + SoftDeleteAdminMixin.actions
+
+
+class TenantScopedInlineAdminMixin:
+    """Copies `tenant`/`tenant_user` onto new inline rows from their parent.
+
+    Both fields are `editable=False` and NOT NULL on every tenant-scoped
+    model, so they never appear in an inline's form and a row created through
+    one would fail the NOT NULL constraint. The parent object is the only
+    source the admin has — it carries no notion of which tenant the session
+    is acting for.
+    """
+
+    def save_formset(self, request, form, formset, change):
+        instances = formset.save(commit=False)
+        for instance in instances:
+            if getattr(instance, "tenant", None) is None:
+                instance.tenant = form.instance.tenant
+                instance.tenant_user = form.instance.tenant_user
+            instance.save()
+        for obj in formset.deleted_objects:
+            obj.delete()
+        formset.save_m2m()
