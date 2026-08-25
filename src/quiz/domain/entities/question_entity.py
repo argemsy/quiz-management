@@ -10,6 +10,7 @@ class AnswerChoiceEntity:
     text: str
     is_correct: bool
     id: uuid.UUID | None = None
+    order: int = 0
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,7 @@ class QuestionEntity:
     response_type: QuestionResponseTypeEnum
     answer_choices: list[AnswerChoiceEntity] = field(default_factory=list)
     id: uuid.UUID | None = None
+    order: int = 0
 
     def __post_init__(self) -> None:
         if not self.answer_choices:

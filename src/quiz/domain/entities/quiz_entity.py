@@ -2,7 +2,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.quiz.shared.quiz_enums import QuizTypeEnum
+from src.quiz.domain.exceptions import InvalidQuizConfigurationError
+from src.quiz.shared.quiz_enums import OrderStrategyEnum, QuizTypeEnum
 from src.shared.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -11,22 +12,56 @@ logger = get_logger(__name__)
 @dataclass(frozen=True)
 class QuizConfiguration:
     total_questions_allowed: int = 20
+    min_questions_allowed: int = 1
+    max_answers_allowed: int = 5
     time_limit_minutes: int = 60
     allow_review: bool = True
     allowed_attempts: int | None = None
+    question_order: OrderStrategyEnum = OrderStrategyEnum.AS_AUTHORED
+    answer_order: OrderStrategyEnum = OrderStrategyEnum.AS_AUTHORED
 
     def __post_init__(self):
+        # Hydrated from raw JSON by `QuizEntity._build_configuration`, so the
+        # ordering fields arrive as plain strings from the database and as
+        # enum members from Python callers. Normalising here keeps every
+        # consumer free of that distinction. The dataclass is frozen, hence
+        # `object.__setattr__`.
+        for field_name in ("question_order", "answer_order"):
+            value = getattr(self, field_name)
+            if not isinstance(value, OrderStrategyEnum):
+                object.__setattr__(self, field_name, OrderStrategyEnum(value))
+
         if self.total_questions_allowed <= 0:
-            raise ValueError("total_questions_allowed must be greater than 0")
+            raise InvalidQuizConfigurationError(
+                "total_questions_allowed must be greater than 0"
+            )
         if self.time_limit_minutes <= 0:
-            raise ValueError("time_limit_minutes must be greater than 0")
+            raise InvalidQuizConfigurationError(
+                "time_limit_minutes must be greater than 0"
+            )
+        if self.min_questions_allowed <= 0:
+            raise InvalidQuizConfigurationError(
+                "min_questions_allowed must be greater than 0"
+            )
+        if self.min_questions_allowed > self.total_questions_allowed:
+            raise InvalidQuizConfigurationError(
+                "min_questions_allowed cannot exceed total_questions_allowed"
+            )
+        if self.max_answers_allowed <= 0:
+            raise InvalidQuizConfigurationError(
+                "max_answers_allowed must be greater than 0"
+            )
 
     def to_primitive(self):
         return {
             "total_questions_allowed": self.total_questions_allowed,
+            "min_questions_allowed": self.min_questions_allowed,
+            "max_answers_allowed": self.max_answers_allowed,
             "time_limit_minutes": self.time_limit_minutes,
             "allow_review": self.allow_review,
             "allowed_attempts": self.allowed_attempts,
+            "question_order": self.question_order.value,
+            "answer_order": self.answer_order.value,
         }
 
 
