@@ -3,8 +3,9 @@ from src.quiz.application.create_quiz_use_case.quiz_service import QuizService
 from src.quiz.application.create_quiz_use_case.tenant_validation_service import (
     TenantValidationService,
 )
+from src.quiz.domain.composition import validate_composition
 from src.quiz.domain.entities.question_entity import AnswerChoiceEntity, QuestionEntity
-from src.quiz.domain.entities.quiz_entity import QuizEntity
+from src.quiz.domain.entities.quiz_entity import QuizConfiguration, QuizEntity
 from src.quiz.shared.quiz_event_channels import QuizEventChannel
 from src.shared.application.idempotency_service import IdempotencyService
 from src.shared.infrastructure.event_bus import EventBus, EventBusMessage
@@ -81,7 +82,19 @@ class CreateQuizUseCase:
         (e.g. a question needs >=1 answer choice) before anything else runs
         — invalid question data fails the whole mutation up front instead of
         leaving behind a Quiz whose QUESTIONS_REQUESTED event is doomed to
-        keep failing."""
+        keep failing. The configuration's composition limits are checked in
+        the same pass and for the same reason.
+
+        `QuizConfiguration(**dto.configuration)` also surfaces an incoherent
+        configuration (e.g. a minimum above the maximum) here rather than
+        later inside `QuizService.build_entity`, where it would already be
+        past the point of a clean rejection.
+        """
+        validate_composition(
+            QuizConfiguration(**dto.configuration),
+            dto.questions,
+        )
+
         for question in dto.questions:
             QuestionEntity(
                 text=question.text,

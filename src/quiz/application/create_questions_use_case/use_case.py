@@ -13,16 +13,28 @@ class CreateQuestionsUseCase:
         self.question_service = question_service
 
     async def execute(self, dto: CreateQuestionsDTO) -> list[QuestionEntity]:
+        # Positions are derived from the submitted sequence rather than
+        # carried on the DTO: the list is already the author's intent, and a
+        # second source of truth for the same fact would only raise questions
+        # (conflicting? sparse? tied?) that nothing needs to answer. The
+        # `start=1` density guarantee originates here.
         questions = [
             QuestionEntity(
                 text=question.text,
                 response_type=question.response_type,
+                order=position,
                 answer_choices=[
-                    AnswerChoiceEntity(text=choice.text, is_correct=choice.is_correct)
-                    for choice in question.answer_choices
+                    AnswerChoiceEntity(
+                        text=choice.text,
+                        is_correct=choice.is_correct,
+                        order=choice_position,
+                    )
+                    for choice_position, choice in enumerate(
+                        question.answer_choices, start=1
+                    )
                 ],
             )
-            for question in dto.questions
+            for position, question in enumerate(dto.questions, start=1)
         ]
 
         created = await self.question_service.create_questions(
